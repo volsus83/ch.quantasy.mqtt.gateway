@@ -50,7 +50,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import java.net.URI;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
@@ -61,23 +65,26 @@ import org.eclipse.paho.client.mqttv3.MqttMessage;
  *
  * @author reto
  */
-public abstract class AbstractAgent<A extends AgentContract> implements MQTTCommunicationCallback{
+public class Agent implements MQTTCommunicationCallback {
 
     private final MQTTCommunication communication;
     private final ObjectMapper mapper;
 
     private final Map<String, MqttMessage> messageMap;
-    private final Map<String, MessageConsumer> messageConsumerMap;
-        private A agentContract;
+    private final Map<String, Set<MessageConsumer>> messageConsumerMap;
+    private AgentContract agentContract;
+    private final ExecutorService executorService;
+    private MQTTParameters parameters;
 
-
-    public AbstractAgent(URI mqttURI, String sessionID, A agentContract) throws MqttException {
+    public Agent(URI mqttURI, String sessionID, AgentContract agentContract) throws MqttException {
+        //I do not know if this is a great idea... Check with load-tests!
+        executorService = Executors.newCachedThreadPool();
         this.agentContract = agentContract;
         messageMap = new HashMap<>();
-        messageConsumerMap=new HashMap<>();
+        messageConsumerMap = new HashMap<>();
         mapper = new ObjectMapper(new YAMLFactory());
         communication = new MQTTCommunication();
-        MQTTParameters parameters = new MQTTParameters();
+        parameters = new MQTTParameters();
         parameters.setClientID(sessionID);
         parameters.setIsCleanSession(true);
         parameters.setIsLastWillRetained(true);
@@ -87,30 +94,54 @@ public abstract class AbstractAgent<A extends AgentContract> implements MQTTComm
         try {
             parameters.setLastWillMessage(mapper.writeValueAsBytes(Boolean.FALSE));
         } catch (JsonProcessingException ex) {
-            Logger.getLogger(AbstractAgent.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Agent.class.getName()).log(Level.SEVERE, null, ex);
         }
         parameters.setMqttCallback(this);
+    }
+    
+    public void connect() throws MqttException{
         communication.connect(parameters);
         try {
             communication.publishActualWill(mapper.writeValueAsBytes(Boolean.TRUE));
+            for(String subscription:messageConsumerMap.keySet()){
+                communication.subscribe(subscription, 1);
+            }
         } catch (JsonProcessingException ex) {
-            Logger.getLogger(AbstractAgent.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Agent.class.getName()).log(Level.SEVERE, null, ex);
         }
+    }
+    
+    public void disconnect() throws MqttException{
+        try {
+            communication.publishActualWill(mapper.writeValueAsBytes(Boolean.FALSE));
+            for(String subscription:messageConsumerMap.keySet()){
+                communication.unsubscribe(subscription);
+            }
+        } catch (JsonProcessingException ex) {
+            Logger.getLogger(Agent.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        communication.disconnect();
+    }
 
+
+    public synchronized void subscribe(String topic,  MessageConsumer consumer) {
+        if (!messageConsumerMap.containsKey(topic)) {
+            messageConsumerMap.put(topic, new HashSet<>());
+            communication.subscribe(topic, 1);
+        }
+        messageConsumerMap.get(topic).add(consumer);
     }
-    
-    public void subscribe(String topic,int qualityOfService){
-        communication.subscribe(topic, qualityOfService);
+
+    public synchronized void unsubscribe(String topic, MessageConsumer consumer) {
+        if (messageConsumerMap.containsKey(topic)) {
+            Set<MessageConsumer> messageConsumers = messageConsumerMap.get(topic);
+            messageConsumers.remove(consumer);
+            if (messageConsumers.isEmpty()) {
+                messageConsumerMap.remove(topic);
+                communication.unsubscribe(topic);
+            }
+        }
     }
-    
-    public void unsubscribe(String topic){
-        communication.unsubscribe(topic);
-    }
-    
-//    public void subscribe(String topic,int qualityOfService,MessageConsumer consumer){
-//        messageConsumerMap.
-//        communication.subscribe(topic, qualityOfService);
-//    }
 
     @Override
     public void connectionLost(Throwable thrwbl) {
@@ -128,7 +159,7 @@ public abstract class AbstractAgent<A extends AgentContract> implements MQTTComm
         return messageMap.get(topic);
     }
 
-    protected void addMessage(String topic, Object status) {
+    public void addMessage(String topic, Object status) {
         try {
             MqttMessage message = null;
             if (status != null) {
@@ -143,12 +174,39 @@ public abstract class AbstractAgent<A extends AgentContract> implements MQTTComm
             communication.readyToPublish(this, topic);
 
         } catch (JsonProcessingException ex) {
-            Logger.getLogger(AbstractAgent.class
+            Logger.getLogger(Agent.class
                     .getName()).log(Level.SEVERE, null, ex);
         }
     }
 
     public ObjectMapper getMapper() {
         return mapper;
+    }
+
+    @Override
+    public void messageArrived(String topic, MqttMessage mm) {
+        byte[] payload = mm.getPayload();
+        if (payload == null) {
+            return;
+        }
+        Set<MessageConsumer> messageConsumers = this.messageConsumerMap.get(topic);
+        if (messageConsumers != null) {
+            for (MessageConsumer consumer : messageConsumers) {
+                executorService.submit(new Runnable() {
+                    @Override
+                    //Not so sure if this is a great idea... Check it!
+                    public void run() {
+                        try {
+                            consumer.messageArrived(Agent.this, topic, payload);
+                        } catch (Exception ex) {
+                            Logger.getLogger(getClass().
+                                    getName()).log(Level.INFO, null, ex);
+                        }
+                    }
+                });
+
+            }
+        }
+
     }
 }

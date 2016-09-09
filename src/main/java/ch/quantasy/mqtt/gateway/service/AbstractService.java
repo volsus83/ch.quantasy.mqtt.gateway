@@ -42,13 +42,14 @@
  */
 package ch.quantasy.mqtt.gateway.service;
 
-
 import ch.quantasy.mqtt.communication.mqtt.MQTTCommunication;
 import ch.quantasy.mqtt.communication.mqtt.MQTTCommunicationCallback;
 import ch.quantasy.mqtt.communication.mqtt.MQTTParameters;
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.introspect.VisibilityChecker;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import java.net.URI;
 import java.util.HashMap;
@@ -91,6 +92,10 @@ public abstract class AbstractService<S extends ServiceContract> implements MQTT
         eventMap = new HashMap<>();
         contractDescriptionMap = new HashMap<>();
         mapper = new ObjectMapper(new YAMLFactory());
+        mapper.setVisibility(VisibilityChecker.Std.defaultInstance().withFieldVisibility(JsonAutoDetect.Visibility.ANY)
+                .withGetterVisibility(JsonAutoDetect.Visibility.NONE)
+                .withSetterVisibility(JsonAutoDetect.Visibility.NONE)
+                .withCreatorVisibility(JsonAutoDetect.Visibility.NONE));
         communication = new MQTTCommunication();
         parameters = new MQTTParameters();
         parameters.setClientID(clientID);

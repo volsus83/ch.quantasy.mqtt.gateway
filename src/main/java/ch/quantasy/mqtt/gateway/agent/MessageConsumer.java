@@ -42,12 +42,21 @@
  */
 package ch.quantasy.mqtt.gateway.agent;
 
-import org.eclipse.paho.client.mqttv3.MqttMessage;
-
 /**
  *
  * @author reto
  */
 public interface MessageConsumer {
-        public void messageArrived(AbstractAgent agent, String topic, MqttMessage mm) throws Exception;
+     /**
+     * This is called within a new runnable! Be sure this method is programmed
+     * thread safe!
+     * @param agent This is the agent which received the message
+     * @param topic This String is never null and contains the topic of the mqtt
+     * message.
+     * @param payload This byte[] is never null and contains the payload of the
+     * mqtt message.
+     * @throws Exception Any exception is handled 'gracefully' within
+     * AbstractService.
+     */
+        public void messageArrived(Agent agent, String topic, byte[] mm) throws Exception;
 }
