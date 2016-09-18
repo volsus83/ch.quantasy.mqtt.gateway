@@ -48,6 +48,7 @@ import ch.quantasy.mqtt.communication.mqtt.MQTTParameters;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.introspect.VisibilityChecker;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
@@ -96,6 +97,7 @@ public abstract class AbstractService<S extends ServiceContract> implements MQTT
                 .withGetterVisibility(JsonAutoDetect.Visibility.NONE)
                 .withSetterVisibility(JsonAutoDetect.Visibility.NONE)
                 .withCreatorVisibility(JsonAutoDetect.Visibility.NONE));
+        mapper.configure(MapperFeature.PROPAGATE_TRANSIENT_MARKER, true);
         communication = new MQTTCommunication();
         parameters = new MQTTParameters();
         parameters.setClientID(clientID);
