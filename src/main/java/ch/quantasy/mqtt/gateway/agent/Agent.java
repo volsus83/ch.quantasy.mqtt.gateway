@@ -45,8 +45,12 @@ package ch.quantasy.mqtt.gateway.agent;
 import ch.quantasy.mqtt.communication.mqtt.MQTTCommunication;
 import ch.quantasy.mqtt.communication.mqtt.MQTTCommunicationCallback;
 import ch.quantasy.mqtt.communication.mqtt.MQTTParameters;
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.introspect.VisibilityChecker;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import java.net.URI;
 import java.util.HashMap;
@@ -73,16 +77,26 @@ public class Agent implements MQTTCommunicationCallback {
     private final Map<String, MqttMessage> messageMap;
     private final Map<String, Set<MessageConsumer>> messageConsumerMap;
     private AgentContract agentContract;
-    private final ExecutorService executorService;
+    private final static ExecutorService executorService;
     private MQTTParameters parameters;
+    
+    static{
+         //I do not know if this is a great idea... Check with load-tests!
+        executorService = Executors.newCachedThreadPool();
+    }
 
     public Agent(URI mqttURI, String sessionID, AgentContract agentContract) throws MqttException {
-        //I do not know if this is a great idea... Check with load-tests!
-        executorService = Executors.newCachedThreadPool();
         this.agentContract = agentContract;
         messageMap = new HashMap<>();
         messageConsumerMap = new HashMap<>();
         mapper = new ObjectMapper(new YAMLFactory());
+        mapper.setVisibility(VisibilityChecker.Std.defaultInstance().withFieldVisibility(JsonAutoDetect.Visibility.ANY)
+                .withGetterVisibility(JsonAutoDetect.Visibility.NONE)
+                .withSetterVisibility(JsonAutoDetect.Visibility.NONE)
+                .withCreatorVisibility(JsonAutoDetect.Visibility.NONE));
+        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
+        mapper.configure(MapperFeature.PROPAGATE_TRANSIENT_MARKER, true);
         communication = new MQTTCommunication();
         parameters = new MQTTParameters();
         parameters.setClientID(sessionID);
@@ -98,23 +112,23 @@ public class Agent implements MQTTCommunicationCallback {
         }
         parameters.setMqttCallback(this);
     }
-    
-    public void connect() throws MqttException{
+
+    public void connect() throws MqttException {
         communication.connect(parameters);
         try {
             communication.publishActualWill(mapper.writeValueAsBytes(Boolean.TRUE));
-            for(String subscription:messageConsumerMap.keySet()){
+            for (String subscription : messageConsumerMap.keySet()) {
                 communication.subscribe(subscription, 1);
             }
         } catch (JsonProcessingException ex) {
             Logger.getLogger(Agent.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
-    
-    public void disconnect() throws MqttException{
+
+    public void disconnect() throws MqttException {
         try {
             communication.publishActualWill(mapper.writeValueAsBytes(Boolean.FALSE));
-            for(String subscription:messageConsumerMap.keySet()){
+            for (String subscription : messageConsumerMap.keySet()) {
                 communication.unsubscribe(subscription);
             }
         } catch (JsonProcessingException ex) {
@@ -123,8 +137,7 @@ public class Agent implements MQTTCommunicationCallback {
         communication.disconnect();
     }
 
-
-    public synchronized void subscribe(String topic,  MessageConsumer consumer) {
+    public synchronized void subscribe(String topic, MessageConsumer consumer) {
         if (!messageConsumerMap.containsKey(topic)) {
             messageConsumerMap.put(topic, new HashSet<>());
             communication.subscribe(topic, 1);
@@ -183,29 +196,39 @@ public class Agent implements MQTTCommunicationCallback {
         return mapper;
     }
 
+    public static boolean compareTopic(final String actualTopic, final String subscribedTopic) {
+        return actualTopic.matches(subscribedTopic.replaceAll("\\+", "[^/]+").replaceAll("#", ".+"));
+    }
+
     @Override
     public void messageArrived(String topic, MqttMessage mm) {
         byte[] payload = mm.getPayload();
         if (payload == null) {
             return;
         }
-        Set<MessageConsumer> messageConsumers = this.messageConsumerMap.get(topic);
-        if (messageConsumers != null) {
-            for (MessageConsumer consumer : messageConsumers) {
-                executorService.submit(new Runnable() {
-                    @Override
-                    //Not so sure if this is a great idea... Check it!
-                    public void run() {
-                        try {
-                            consumer.messageArrived(Agent.this, topic, payload);
-                        } catch (Exception ex) {
-                            Logger.getLogger(getClass().
-                                    getName()).log(Level.INFO, null, ex);
-                        }
-                    }
-                });
 
+        Set<MessageConsumer> messageConsumers = new HashSet<>();
+        for (String subscribedTopic : this.messageConsumerMap.keySet()) {
+            if (compareTopic(topic, subscribedTopic)) {
+                messageConsumers.addAll(this.messageConsumerMap.get(subscribedTopic));
             }
+        }
+        //This way, even if a consumer has been subscribed itsself under multiple topic-filters,
+        //it is only called once per topic match.
+        for (MessageConsumer consumer : messageConsumers) {
+            executorService.submit(new Runnable() {
+                @Override
+                //Not so sure if this is a great idea... Check it!
+                public void run() {
+                    try {
+                        consumer.messageArrived(Agent.this, topic, payload);
+                    } catch (Exception ex) {
+                        Logger.getLogger(getClass().
+                                getName()).log(Level.INFO, null, ex);
+                    }
+                }
+            });
+
         }
 
     }

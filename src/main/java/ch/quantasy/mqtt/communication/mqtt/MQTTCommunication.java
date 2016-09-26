@@ -90,6 +90,10 @@ public class MQTTCommunication implements IMqttActionListener {
         mqttClient.setCallback(connectionParameters.getMqttCallback());
         connectOptions.setCleanSession(connectionParameters.isCleanSession());
         connectOptions.setWill(connectionParameters.getWillTopic(), connectionParameters.getLastWillMessage(), connectionParameters.getLastWillQoS(), connectionParameters.isLastWillRetained());
+        //connectOptions.setMaxInflight(1024);
+        connectOptions.setAutomaticReconnect(true);
+        
+        mqttClient.setManualAcks(false);
         mqttClient.connect(connectOptions).waitForCompletion();
         publisherThread = new Thread(publisher);
         publisherThread.setDaemon(true);

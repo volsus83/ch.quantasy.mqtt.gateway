@@ -48,6 +48,7 @@ import ch.quantasy.mqtt.communication.mqtt.MQTTParameters;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.introspect.VisibilityChecker;
@@ -83,11 +84,17 @@ public abstract class AbstractService<S extends ServiceContract> implements MQTT
     private final HashMap<String, List<Object>> eventMap;
     private final HashMap<String, MqttMessage> contractDescriptionMap;
 
-    private final ExecutorService executorService;
+    /**
+     * One executorService pool for all implemented Services within a JVM
+     */
+    private final static ExecutorService executorService;
+
+    static {
+        executorService = Executors.newCachedThreadPool();
+    }
 
     public AbstractService(URI mqttURI, String clientID, S serviceContract) throws MqttException {
         //I do not know if this is a great idea... Check with load-tests!
-        executorService = Executors.newCachedThreadPool();
         this.serviceContract = serviceContract;
         statusMap = new HashMap<>();
         eventMap = new HashMap<>();
@@ -97,6 +104,8 @@ public abstract class AbstractService<S extends ServiceContract> implements MQTT
                 .withGetterVisibility(JsonAutoDetect.Visibility.NONE)
                 .withSetterVisibility(JsonAutoDetect.Visibility.NONE)
                 .withCreatorVisibility(JsonAutoDetect.Visibility.NONE));
+        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
         mapper.configure(MapperFeature.PROPAGATE_TRANSIENT_MARKER, true);
         communication = new MQTTCommunication();
         parameters = new MQTTParameters();
@@ -228,18 +237,23 @@ public abstract class AbstractService<S extends ServiceContract> implements MQTT
         if (payload == null) {
             return;
         }
-        executorService.submit(new Runnable() {
-            @Override
-            //Not so sure if this is a great idea... Check it!
-            public void run() {
-                try {
-                    messageArrived(topic, payload);
-                } catch (Exception ex) {
-                    Logger.getLogger(getClass().
-                            getName()).log(Level.INFO, null, ex);
-                }
-            }
-        });
+        //try {
+        //    executorService.submit(new Runnable() {
+        //        @Override
+                //Not so sure if this is a great idea... Check it!
+        //        public void run() {
+                    try {
+                        messageArrived(topic, payload);
+                    } catch (Exception ex) {
+                        Logger.getLogger(getClass().
+                                getName()).log(Level.INFO, null, ex);
+                    }
+         //       }
+         //   });
+        //} catch (Exception ex) {
+        //    Logger.getLogger(getClass().
+        //            getName()).log(Level.INFO, null, ex);
+        //}
 
     }
 
