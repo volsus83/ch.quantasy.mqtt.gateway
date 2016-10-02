@@ -57,6 +57,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.logging.Level;
@@ -71,6 +73,8 @@ import org.eclipse.paho.client.mqttv3.MqttMessage;
  */
 public class Agent implements MQTTCommunicationCallback {
 
+    private Timer timer;
+
     private final MQTTCommunication communication;
     private final ObjectMapper mapper;
 
@@ -79,9 +83,9 @@ public class Agent implements MQTTCommunicationCallback {
     private AgentContract agentContract;
     private final static ExecutorService executorService;
     private MQTTParameters parameters;
-    
-    static{
-         //I do not know if this is a great idea... Check with load-tests!
+
+    static {
+        //I do not know if this is a great idea... Check with load-tests!
         executorService = Executors.newCachedThreadPool();
     }
 
@@ -159,7 +163,24 @@ public class Agent implements MQTTCommunicationCallback {
     @Override
     public void connectionLost(Throwable thrwbl) {
         thrwbl.printStackTrace();
-        System.out.println("Uuups, connection lost");
+        System.out.println("Uuups, connection lost... will try again in a few seconds");
+        if (this.timer != null) {
+            return;
+        }
+        this.timer = new Timer(true);
+        this.timer.scheduleAtFixedRate(new TimerTask() {
+
+            @Override
+            public void run() {
+                try {
+                    communication.connect(parameters);
+                    timer.cancel();
+                    timer = null;
+
+                } catch (Exception ex) {
+                }
+            }
+        }, 0, 3000);
     }
 
     @Override
@@ -172,6 +193,8 @@ public class Agent implements MQTTCommunicationCallback {
         return messageMap.get(topic);
     }
 
+    //Here we need an addMessage for multiple messages to the same topic (queued)
+    //and a setMessage for single message to the same topic (possible override)
     public void addMessage(String topic, Object status) {
         try {
             MqttMessage message = null;
@@ -206,11 +229,12 @@ public class Agent implements MQTTCommunicationCallback {
         if (payload == null) {
             return;
         }
-
         Set<MessageConsumer> messageConsumers = new HashSet<>();
-        for (String subscribedTopic : this.messageConsumerMap.keySet()) {
-            if (compareTopic(topic, subscribedTopic)) {
-                messageConsumers.addAll(this.messageConsumerMap.get(subscribedTopic));
+        synchronized (this) {
+            for (String subscribedTopic : this.messageConsumerMap.keySet()) {
+                if (compareTopic(topic, subscribedTopic)) {
+                    messageConsumers.addAll(this.messageConsumerMap.get(subscribedTopic));
+                }
             }
         }
         //This way, even if a consumer has been subscribed itsself under multiple topic-filters,
