@@ -221,9 +221,11 @@ public abstract class AbstractService<S extends ServiceContract> implements MQTT
             @Override
             public void run() {
                 try {
-                    communication.connect(parameters);
-                    timer.cancel();
-                    timer = null;
+                    if (timer != null ){
+                        communication.connect(parameters);
+                        timer.cancel();
+                        timer = null;
+                    }
 
                 } catch (Exception ex) {
                 }
@@ -240,16 +242,16 @@ public abstract class AbstractService<S extends ServiceContract> implements MQTT
         //try {
         //    executorService.submit(new Runnable() {
         //        @Override
-                //Not so sure if this is a great idea... Check it!
+        //Not so sure if this is a great idea... Check it!
         //        public void run() {
-                    try {
-                        messageArrived(topic, payload);
-                    } catch (Exception ex) {
-                        Logger.getLogger(getClass().
-                                getName()).log(Level.INFO, null, ex);
-                    }
-         //       }
-         //   });
+        try {
+            messageArrived(topic, payload);
+        } catch (Exception ex) {
+            Logger.getLogger(getClass().
+                    getName()).log(Level.INFO, null, ex);
+        }
+        //       }
+        //   });
         //} catch (Exception ex) {
         //    Logger.getLogger(getClass().
         //            getName()).log(Level.INFO, null, ex);

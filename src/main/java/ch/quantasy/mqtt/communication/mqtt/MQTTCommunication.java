@@ -92,12 +92,14 @@ public class MQTTCommunication implements IMqttActionListener {
         connectOptions.setWill(connectionParameters.getWillTopic(), connectionParameters.getLastWillMessage(), connectionParameters.getLastWillQoS(), connectionParameters.isLastWillRetained());
         //connectOptions.setMaxInflight(1024);
         connectOptions.setAutomaticReconnect(true);
-        
+
         mqttClient.setManualAcks(false);
         mqttClient.connect(connectOptions).waitForCompletion();
-        publisherThread = new Thread(publisher);
-        publisherThread.setDaemon(true);
-        publisherThread.start();
+        if (publisherThread == null) {
+            publisherThread = new Thread(publisher);
+            publisherThread.setDaemon(true);
+            publisherThread.start();
+        }
     }
 
     public synchronized IMqttDeliveryToken publishActualWill(byte[] actualWill) {
@@ -108,7 +110,7 @@ public class MQTTCommunication implements IMqttActionListener {
     }
 
     public void readyToPublish(PublisherCallback publisherCallback, String topic) {
-        publisher.readyToPublish(publisherCallback,topic);
+        publisher.readyToPublish(publisherCallback, topic);
     }
 
     private synchronized IMqttDeliveryToken publish(String topic, MqttMessage message) {
@@ -132,7 +134,7 @@ public class MQTTCommunication implements IMqttActionListener {
             return null;
         }
     }
-    
+
     public synchronized IMqttToken unsubscribe(String topic) {
         try {
             if (mqttClient == null || !mqttClient.isConnected()) {
@@ -190,7 +192,7 @@ public class MQTTCommunication implements IMqttActionListener {
         }
 
         public synchronized void readyToPublish(PublisherCallback callback, String topic) {
-            PublishRequest publishRequest=new PublishRequest(callback, topic);
+            PublishRequest publishRequest = new PublishRequest(callback, topic);
             if (this.publishingQueue.contains(publishRequest)) {
                 return;
             }
@@ -218,7 +220,9 @@ public class MQTTCommunication implements IMqttActionListener {
             }
         }
     }
-    class PublishRequest{
+
+    class PublishRequest {
+
         public final String topic;
         public final PublisherCallback publisherCallback;
 
@@ -226,8 +230,8 @@ public class MQTTCommunication implements IMqttActionListener {
             this.topic = topic;
             this.publisherCallback = publisherCallback;
         }
-        
-        public MqttMessage getMessage(){
+
+        public MqttMessage getMessage() {
             return this.publisherCallback.getMessageToPublish(topic);
         }
 
@@ -264,7 +268,6 @@ public class MQTTCommunication implements IMqttActionListener {
         public String toString() {
             return "PublishRequest{" + "publisherCallback=" + publisherCallback + ", topic=" + topic + '}';
         }
-   
-        
+
     }
 }
