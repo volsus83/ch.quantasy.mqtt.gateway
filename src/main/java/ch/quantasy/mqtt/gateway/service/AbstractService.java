@@ -221,9 +221,10 @@ public abstract class AbstractService<S extends ServiceContract> implements MQTT
             @Override
             public void run() {
                 try {
-                    if (timer != null ){
+                    if (timer != null) {
                         communication.connect(parameters);
                         timer.cancel();
+                        communication.publishActualWill(serviceContract.ONLINE.getBytes());
                         timer = null;
                     }
 
