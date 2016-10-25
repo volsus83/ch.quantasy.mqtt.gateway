@@ -53,8 +53,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.introspect.VisibilityChecker;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import java.net.URI;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Timer;
@@ -78,7 +81,7 @@ public class Agent implements MQTTCommunicationCallback {
     private final MQTTCommunication communication;
     private final ObjectMapper mapper;
 
-    private final Map<String, MqttMessage> messageMap;
+    private final Map<String, Deque<MqttMessage>> intentMap;
     private final Map<String, Set<MessageConsumer>> messageConsumerMap;
     private AgentContract agentContract;
     private final static ExecutorService executorService;
@@ -91,7 +94,7 @@ public class Agent implements MQTTCommunicationCallback {
 
     public Agent(URI mqttURI, String sessionID, AgentContract agentContract) throws MqttException {
         this.agentContract = agentContract;
-        messageMap = new HashMap<>();
+        intentMap = new HashMap<>();
         messageConsumerMap = new HashMap<>();
         mapper = new ObjectMapper(new YAMLFactory());
         mapper.setVisibility(VisibilityChecker.Std.defaultInstance().withFieldVisibility(JsonAutoDetect.Visibility.ANY)
@@ -99,7 +102,6 @@ public class Agent implements MQTTCommunicationCallback {
                 .withSetterVisibility(JsonAutoDetect.Visibility.NONE)
                 .withCreatorVisibility(JsonAutoDetect.Visibility.NONE));
         mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-
         mapper.configure(MapperFeature.PROPAGATE_TRANSIENT_MARKER, true);
         communication = new MQTTCommunication();
         parameters = new MQTTParameters();
@@ -190,23 +192,39 @@ public class Agent implements MQTTCommunicationCallback {
 
     @Override
     public MqttMessage getMessageToPublish(String topic) {
-        return messageMap.get(topic);
+        Deque<MqttMessage> intents = intentMap.get(topic);
+        if (intents == null) {
+            return null;
+        }
+        MqttMessage intent = intents.pollFirst();
+        if(!intents.isEmpty()){
+            communication.readyToPublish(this, topic);
+        }
+        return intent;
     }
 
-    //Here we need an addMessage for multiple messages to the same topic (queued)
-    //and a setMessage for single message to the same topic (possible override)
-    public void addMessage(String topic, Object status) {
+    public void clearIntents(String topic) {
+        intentMap.put(topic, null);
+    }
+
+    
+    public void addIntent(String topic, Object intent) {
         try {
             MqttMessage message = null;
-            if (status != null) {
-                message = new MqttMessage(mapper.writeValueAsBytes(status));
+            if (intent != null) {
+                message = new MqttMessage(mapper.writeValueAsBytes(intent));
             } else {
                 message = new MqttMessage();
             }
             message.setQos(1);
             message.setRetained(true);
             topic = topic + "/" + agentContract.ID;
-            messageMap.put(topic, message);
+            Deque<MqttMessage> intents = intentMap.get(topic);
+            if (intent == null) {
+                intents = new LinkedList<>();
+                intentMap.put(topic, intents);
+            }
+            intents.add(message);
             communication.readyToPublish(this, topic);
 
         } catch (JsonProcessingException ex) {

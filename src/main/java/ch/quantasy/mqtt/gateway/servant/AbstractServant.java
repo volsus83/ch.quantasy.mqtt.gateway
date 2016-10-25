@@ -40,8 +40,9 @@
  *  *
  *  *
  */
-package ch.quantasy.mqtt.gateway.service;
+package ch.quantasy.mqtt.gateway.servant;
 
+import ch.quantasy.mqtt.gateway.service.*;
 import ch.quantasy.mqtt.communication.mqtt.MQTTCommunication;
 import ch.quantasy.mqtt.communication.mqtt.MQTTCommunicationCallback;
 import ch.quantasy.mqtt.communication.mqtt.MQTTParameters;
@@ -72,12 +73,12 @@ import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
  * @author reto
  * @param <S>
  */
-public abstract class AbstractService<S extends ServiceContract> implements MQTTCommunicationCallback {
+public abstract class AbstractServant implements MQTTCommunicationCallback {
 
     private Timer timer;
 
     private final MQTTParameters parameters;
-    private final S serviceContract;
+    private final ServantContract servantContract;
     private final MQTTCommunication communication;
     private final ObjectMapper mapper;
     private final HashMap<String, MqttMessage> statusMap;
@@ -93,9 +94,9 @@ public abstract class AbstractService<S extends ServiceContract> implements MQTT
         executorService = Executors.newCachedThreadPool();
     }
 
-    public AbstractService(URI mqttURI, String clientID, S serviceContract) throws MqttException {
+    public AbstractServant(URI mqttURI, String clientID, ServantContract servantContract) throws MqttException {
         //I do not know if this is a great idea... Check with load-tests!
-        this.serviceContract = serviceContract;
+        this.servantContract = servantContract;
         statusMap = new HashMap<>();
         eventMap = new HashMap<>();
         contractDescriptionMap = new HashMap<>();
@@ -112,16 +113,16 @@ public abstract class AbstractService<S extends ServiceContract> implements MQTT
         parameters.setClientID(clientID);
         parameters.setIsCleanSession(false);
         parameters.setIsLastWillRetained(true);
-        parameters.setLastWillMessage(serviceContract.OFFLINE.getBytes());
+        parameters.setLastWillMessage(servantContract.OFFLINE.getBytes());
         parameters.setLastWillQoS(1);
         parameters.setServerURIs(mqttURI);
-        parameters.setWillTopic(serviceContract.STATUS_CONNECTION);
+        parameters.setWillTopic(servantContract.STATUS_CONNECTION);
         parameters.setMqttCallback(this);
         communication.connect(parameters);
-        communication.publishActualWill(serviceContract.ONLINE.getBytes());
-        communication.subscribe(serviceContract.INTENT + "/#", 1);
+        communication.publishActualWill(servantContract.ONLINE.getBytes());
+        communication.subscribe(servantContract.INTENT + "/#", 1);
 
-        addDescription(getServiceContract().STATUS_CONNECTION, "[" + getServiceContract().ONLINE + "|" + getServiceContract().OFFLINE + "]");
+        addDescription(getServantContract().STATUS_CONNECTION, "[" + getServantContract().ONLINE + "|" + getServantContract().OFFLINE + "]");
     }
 
     @Override
@@ -129,8 +130,8 @@ public abstract class AbstractService<S extends ServiceContract> implements MQTT
         //System.out.println("Delivery is done.");
     }
 
-    public S getServiceContract() {
-        return serviceContract;
+    public ServantContract getServantContract() {
+        return servantContract;
     }
 
     public ObjectMapper getMapper() {
@@ -156,7 +157,7 @@ public abstract class AbstractService<S extends ServiceContract> implements MQTT
                 message.setRetained(true);
                 return message;
             } catch (JsonProcessingException ex) {
-                Logger.getLogger(AbstractService.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(AbstractServant.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
         return null;
@@ -186,7 +187,7 @@ public abstract class AbstractService<S extends ServiceContract> implements MQTT
             communication.readyToPublish(this, topic);
 
         } catch (JsonProcessingException ex) {
-            Logger.getLogger(AbstractService.class
+            Logger.getLogger(AbstractServant.class
                     .getName()).log(Level.SEVERE, null, ex);
         }
     }
@@ -197,13 +198,13 @@ public abstract class AbstractService<S extends ServiceContract> implements MQTT
             message.setQos(1);
             message.setRetained(true);
 
-            topic = topic.replaceFirst(getServiceContract().ID_TOPIC, "");
-            String descriptionTopic = getServiceContract().DESCRIPTION + topic;
+            topic = topic.replaceFirst(getServantContract().ID_TOPIC, "");
+            String descriptionTopic = getServantContract().DESCRIPTION + topic;
             contractDescriptionMap.put(descriptionTopic, message);
             communication.readyToPublish(this, descriptionTopic);
 
         } catch (JsonProcessingException ex) {
-            Logger.getLogger(AbstractService.class
+            Logger.getLogger(AbstractServant.class
                     .getName()).log(Level.SEVERE, null, ex);
         }
     }
@@ -224,7 +225,7 @@ public abstract class AbstractService<S extends ServiceContract> implements MQTT
                     if (timer != null) {
                         communication.connect(parameters);
                         timer.cancel();
-                        communication.publishActualWill(mapper.writeValueAsBytes(serviceContract.ONLINE));
+                        communication.publishActualWill(mapper.writeValueAsBytes(servantContract.ONLINE));
                         timer = null;
                     }
 
