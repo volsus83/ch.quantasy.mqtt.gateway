@@ -40,23 +40,26 @@
  *  *
  *  *
  */
-package ch.quantasy.mqtt.gateway.agent;
+package ch.quantasy.mqtt.gateway.client;
 
 /**
  *
  * @author reto
  */
 public interface MessageConsumer {
-     /**
+
+    /**
      * This is called within a new runnable! Be sure this method is programmed
      * thread safe!
-     * @param agent This is the agent which received the message
+     *
+     * @param gatewayClient This is the gatewayClient (Agent / Service / ...)
+     * through which the message was received.
      * @param topic This String is never null and contains the topic of the mqtt
      * message.
      * @param payload This byte[] is never null and contains the payload of the
      * mqtt message.
      * @throws Exception Any exception is handled 'gracefully' within
-     * AbstractService.
+     * GatewayClient.
      */
-        public void messageArrived(Agent agent, String topic, byte[] mm) throws Exception;
+    public void messageArrived(GatewayClient gatewayClient, String topic, byte[] mm) throws Exception;
 }

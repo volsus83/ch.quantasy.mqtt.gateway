@@ -40,12 +40,13 @@
  *  *
  *  *
  */
-package ch.quantasy.mqtt.gateway.agent;
+package ch.quantasy.mqtt.gateway.client;
 
 import ch.quantasy.mqtt.communication.mqtt.MQTTCommunication;
 import ch.quantasy.mqtt.communication.mqtt.MQTTCommunicationCallback;
 import ch.quantasy.mqtt.communication.mqtt.MQTTParameters;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.MapperFeature;
@@ -56,6 +57,10 @@ import java.net.URI;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import org.eclipse.paho.client.mqttv3.MqttException;
+import org.eclipse.paho.client.mqttv3.MqttMessage;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -64,62 +69,75 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
-import org.eclipse.paho.client.mqttv3.MqttException;
-import org.eclipse.paho.client.mqttv3.MqttMessage;
 
 /**
  *
  * @author reto
+ * @param <S>
  */
-public class Agent implements MQTTCommunicationCallback {
+public class GatewayClient<S extends ClientContract> implements MQTTCommunicationCallback {
 
     private Timer timer;
 
+    private final MQTTParameters parameters;
+    private final S contract;
     private final MQTTCommunication communication;
     private final ObjectMapper mapper;
+    private final Map<String, Set<MessageConsumer>> messageConsumerMap;
 
     private final Map<String, Deque<MqttMessage>> intentMap;
-    private final Map<String, Set<MessageConsumer>> messageConsumerMap;
-    private AgentContract agentContract;
+    private final HashMap<String, MqttMessage> statusMap;
+    private final HashMap<String, List<Object>> eventMap;
+    private final HashMap<String, MqttMessage> contractDescriptionMap;
+
+    /**
+     * One executorService pool for all implemented Services within a JVM
+     */
     private final static ExecutorService executorService;
-    private MQTTParameters parameters;
 
     static {
-        //I do not know if this is a great idea... Check with load-tests!
         executorService = Executors.newCachedThreadPool();
     }
 
-    public Agent(URI mqttURI, String sessionID, AgentContract agentContract) throws MqttException {
-        this.agentContract = agentContract;
-        intentMap = new HashMap<>();
+    public GatewayClient(URI mqttURI, String clientID, S contract) throws MqttException {
+        //I do not know if this is a great idea... Check with load-tests!
+        this.contract = contract;
         messageConsumerMap = new HashMap<>();
+        intentMap = new HashMap<>();
+
+        statusMap = new HashMap<>();
+        eventMap = new HashMap<>();
+        contractDescriptionMap = new HashMap<>();
         mapper = new ObjectMapper(new YAMLFactory());
         mapper.setVisibility(VisibilityChecker.Std.defaultInstance().withFieldVisibility(JsonAutoDetect.Visibility.ANY)
                 .withGetterVisibility(JsonAutoDetect.Visibility.NONE)
                 .withSetterVisibility(JsonAutoDetect.Visibility.NONE)
                 .withCreatorVisibility(JsonAutoDetect.Visibility.NONE));
         mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
         mapper.configure(MapperFeature.PROPAGATE_TRANSIENT_MARKER, true);
         communication = new MQTTCommunication();
         parameters = new MQTTParameters();
-        parameters.setClientID(sessionID);
-        parameters.setIsCleanSession(true);
+        parameters.setClientID(clientID);
+        parameters.setIsCleanSession(false);
         parameters.setIsLastWillRetained(true);
+        parameters.setLastWillMessage(contract.OFFLINE.getBytes());
         parameters.setLastWillQoS(1);
         parameters.setServerURIs(mqttURI);
-        parameters.setWillTopic(agentContract.STATUS_CONNECTION);
-        try {
-            parameters.setLastWillMessage(mapper.writeValueAsBytes(Boolean.FALSE));
-        } catch (JsonProcessingException ex) {
-            Logger.getLogger(Agent.class.getName()).log(Level.SEVERE, null, ex);
-        }
+        parameters.setWillTopic(contract.STATUS_CONNECTION);
         parameters.setMqttCallback(this);
+        communication.connect(parameters);
+        communication.publishActualWill(contract.ONLINE.getBytes());
+        communication.subscribe(contract.INTENT + "/#", 1);
+
+        addDescription(getContract().STATUS_CONNECTION, "[" + getContract().ONLINE + "|" + getContract().OFFLINE + "]");
     }
 
     public void connect() throws MqttException {
+        if (communication.isConnected()) {
+            return;
+        }
         communication.connect(parameters);
         try {
             communication.publishActualWill(mapper.writeValueAsBytes(Boolean.TRUE));
@@ -127,18 +145,21 @@ public class Agent implements MQTTCommunicationCallback {
                 communication.subscribe(subscription, 1);
             }
         } catch (JsonProcessingException ex) {
-            Logger.getLogger(Agent.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(GatewayClient.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 
     public void disconnect() throws MqttException {
+        if (!communication.isConnected()) {
+            return;
+        }
         try {
             communication.publishActualWill(mapper.writeValueAsBytes(Boolean.FALSE));
             for (String subscription : messageConsumerMap.keySet()) {
                 communication.unsubscribe(subscription);
             }
         } catch (JsonProcessingException ex) {
-            Logger.getLogger(Agent.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(GatewayClient.class.getName()).log(Level.SEVERE, null, ex);
         }
         communication.disconnect();
     }
@@ -163,51 +184,59 @@ public class Agent implements MQTTCommunicationCallback {
     }
 
     @Override
-    public void connectionLost(Throwable thrwbl) {
-        thrwbl.printStackTrace();
-        System.out.println("Uuups, connection lost... will try again in a few seconds");
-        if (this.timer != null) {
-            return;
-        }
-        this.timer = new Timer(true);
-        this.timer.scheduleAtFixedRate(new TimerTask() {
-
-            @Override
-            public void run() {
-                try {
-                    communication.connect(parameters);
-                    timer.cancel();
-                    timer = null;
-
-                } catch (Exception ex) {
-                }
-            }
-        }, 0, 3000);
+    public void deliveryComplete(IMqttDeliveryToken imdt) {
+        //System.out.println("Delivery is done.");
     }
 
-    @Override
-    public void deliveryComplete(IMqttDeliveryToken imdt) {
-        System.out.println("done.");
+    public S getContract() {
+        return contract;
+    }
+
+    public ObjectMapper getMapper() {
+        return mapper;
     }
 
     @Override
     public MqttMessage getMessageToPublish(String topic) {
+        //For the status, only the latest one per topic is of interest.
+        MqttMessage message = statusMap.get(topic);
+        if (message != null) {
+            return message;
+        }
+        //For the contract, only the latest one per topic is of interest.
+        message = contractDescriptionMap.get(topic);
+        if (message != null) {
+            return message;
+        }
+        //For the event, all per topic are of interest. Hence a List of events is returned.
+        List<Object> eventList = eventMap.get(topic);
+        if (eventList != null) {
+            eventMap.put(topic, new LinkedList<>());
+            try {
+                message = new MqttMessage(mapper.writeValueAsBytes(eventList));
+                message.setQos(1);
+                message.setRetained(true);
+                return message;
+            } catch (JsonProcessingException ex) {
+                Logger.getLogger(GatewayClient.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+        //For the intent, each of which per topic is of interest. Hence one after the other is called.
         Deque<MqttMessage> intents = intentMap.get(topic);
-        if (intents == null) {
-            return null;
+        if (intents != null) {
+            MqttMessage intent = intents.pollFirst();
+            if (!intents.isEmpty()) {
+                communication.readyToPublish(this, topic);
+            }
+            return intent;
         }
-        MqttMessage intent = intents.pollFirst();
-        if(!intents.isEmpty()){
-            communication.readyToPublish(this, topic);
-        }
-        return intent;
+        return null;
     }
 
     public void clearIntents(String topic) {
         intentMap.put(topic, null);
     }
 
-    
     public void addIntent(String topic, Object intent) {
         try {
             MqttMessage message = null;
@@ -218,7 +247,7 @@ public class Agent implements MQTTCommunicationCallback {
             }
             message.setQos(1);
             message.setRetained(true);
-            topic = topic + "/" + agentContract.ID;
+            topic = topic + "/" + contract.ID;
             Deque<MqttMessage> intents = intentMap.get(topic);
             if (intent == null) {
                 intents = new LinkedList<>();
@@ -228,13 +257,82 @@ public class Agent implements MQTTCommunicationCallback {
             communication.readyToPublish(this, topic);
 
         } catch (JsonProcessingException ex) {
-            Logger.getLogger(Agent.class
+            Logger.getLogger(GatewayClient.class
                     .getName()).log(Level.SEVERE, null, ex);
         }
     }
 
-    public ObjectMapper getMapper() {
-        return mapper;
+    protected void addEvent(String topic, Object event) {
+        List<Object> eventList = eventMap.get(topic);
+        if (eventList == null) {
+            eventList = new LinkedList<>();
+            eventMap.put(topic, eventList);
+        }
+        eventList.add(event);
+        this.communication.readyToPublish(this, topic);
+    }
+
+    protected void addStatus(String topic, Object status) {
+        try {
+            MqttMessage message = null;
+            if (status != null) {
+                message = new MqttMessage(mapper.writeValueAsBytes(status));
+            } else {
+                message = new MqttMessage();
+            }
+            message.setQos(1);
+            message.setRetained(true);
+            statusMap.put(topic, message);
+            communication.readyToPublish(this, topic);
+
+        } catch (JsonProcessingException ex) {
+            Logger.getLogger(GatewayClient.class
+                    .getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    protected void addDescription(String topic, Object description) {
+        try {
+            MqttMessage message = new MqttMessage(mapper.writeValueAsBytes(description));
+            message.setQos(1);
+            message.setRetained(true);
+
+            topic = topic.replaceFirst(getContract().ID_TOPIC, "");
+            String descriptionTopic = getContract().DESCRIPTION + topic;
+            contractDescriptionMap.put(descriptionTopic, message);
+            communication.readyToPublish(this, descriptionTopic);
+
+        } catch (JsonProcessingException ex) {
+            Logger.getLogger(GatewayClient.class
+                    .getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    @Override
+    public void connectionLost(Throwable thrwbl) {
+        Logger.getLogger(GatewayClient.class
+                .getName()).log(Level.SEVERE, null, thrwbl);
+        System.out.println("Ouups, lost connection to subscriptions... will try again in some seconds");
+        if (this.timer != null) {
+            return;
+        }
+        this.timer = new Timer(true);
+        this.timer.scheduleAtFixedRate(new TimerTask() {
+
+            @Override
+            public void run() {
+                try {
+                    if (timer != null) {
+                        communication.connect(parameters);
+                        timer.cancel();
+                        communication.publishActualWill(mapper.writeValueAsBytes(contract.ONLINE));
+                        timer = null;
+                    }
+
+                } catch (Exception ex) {
+                }
+            }
+        }, 0, 3000);
     }
 
     public static boolean compareTopic(final String actualTopic, final String subscribedTopic) {
@@ -255,7 +353,7 @@ public class Agent implements MQTTCommunicationCallback {
                 }
             }
         }
-        //This way, even if a consumer has been subscribed itsself under multiple topic-filters,
+        //This way, even if a consumer has been subscribed itself under multiple topic-filters,
         //it is only called once per topic match.
         for (MessageConsumer consumer : messageConsumers) {
             executorService.submit(new Runnable() {
@@ -263,7 +361,7 @@ public class Agent implements MQTTCommunicationCallback {
                 //Not so sure if this is a great idea... Check it!
                 public void run() {
                     try {
-                        consumer.messageArrived(Agent.this, topic, payload);
+                        consumer.messageArrived(GatewayClient.this, topic, payload);
                     } catch (Exception ex) {
                         Logger.getLogger(getClass().
                                 getName()).log(Level.INFO, null, ex);

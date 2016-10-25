@@ -73,12 +73,12 @@ import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
  * @author reto
  * @param <S>
  */
-public abstract class AbstractServant implements MQTTCommunicationCallback {
+public abstract class AbstractServant<S extends ServantContract> implements MQTTCommunicationCallback {
 
     private Timer timer;
 
     private final MQTTParameters parameters;
-    private final ServantContract servantContract;
+    private final S contract;
     private final MQTTCommunication communication;
     private final ObjectMapper mapper;
     private final HashMap<String, MqttMessage> statusMap;
@@ -94,9 +94,9 @@ public abstract class AbstractServant implements MQTTCommunicationCallback {
         executorService = Executors.newCachedThreadPool();
     }
 
-    public AbstractServant(URI mqttURI, String clientID, ServantContract servantContract) throws MqttException {
+    public AbstractServant(URI mqttURI, String clientID, S contract) throws MqttException {
         //I do not know if this is a great idea... Check with load-tests!
-        this.servantContract = servantContract;
+        this.contract = contract;
         statusMap = new HashMap<>();
         eventMap = new HashMap<>();
         contractDescriptionMap = new HashMap<>();
@@ -113,16 +113,16 @@ public abstract class AbstractServant implements MQTTCommunicationCallback {
         parameters.setClientID(clientID);
         parameters.setIsCleanSession(false);
         parameters.setIsLastWillRetained(true);
-        parameters.setLastWillMessage(servantContract.OFFLINE.getBytes());
+        parameters.setLastWillMessage(contract.OFFLINE.getBytes());
         parameters.setLastWillQoS(1);
         parameters.setServerURIs(mqttURI);
-        parameters.setWillTopic(servantContract.STATUS_CONNECTION);
+        parameters.setWillTopic(contract.STATUS_CONNECTION);
         parameters.setMqttCallback(this);
         communication.connect(parameters);
-        communication.publishActualWill(servantContract.ONLINE.getBytes());
-        communication.subscribe(servantContract.INTENT + "/#", 1);
+        communication.publishActualWill(contract.ONLINE.getBytes());
+        communication.subscribe(contract.INTENT + "/#", 1);
 
-        addDescription(getServantContract().STATUS_CONNECTION, "[" + getServantContract().ONLINE + "|" + getServantContract().OFFLINE + "]");
+        addDescription(getContract().STATUS_CONNECTION, "[" + getContract().ONLINE + "|" + getContract().OFFLINE + "]");
     }
 
     @Override
@@ -130,8 +130,8 @@ public abstract class AbstractServant implements MQTTCommunicationCallback {
         //System.out.println("Delivery is done.");
     }
 
-    public ServantContract getServantContract() {
-        return servantContract;
+    public S getContract() {
+        return contract;
     }
 
     public ObjectMapper getMapper() {
@@ -198,8 +198,8 @@ public abstract class AbstractServant implements MQTTCommunicationCallback {
             message.setQos(1);
             message.setRetained(true);
 
-            topic = topic.replaceFirst(getServantContract().ID_TOPIC, "");
-            String descriptionTopic = getServantContract().DESCRIPTION + topic;
+            topic = topic.replaceFirst(getContract().ID_TOPIC, "");
+            String descriptionTopic = getContract().DESCRIPTION + topic;
             contractDescriptionMap.put(descriptionTopic, message);
             communication.readyToPublish(this, descriptionTopic);
 
@@ -225,7 +225,7 @@ public abstract class AbstractServant implements MQTTCommunicationCallback {
                     if (timer != null) {
                         communication.connect(parameters);
                         timer.cancel();
-                        communication.publishActualWill(mapper.writeValueAsBytes(servantContract.ONLINE));
+                        communication.publishActualWill(mapper.writeValueAsBytes(contract.ONLINE));
                         timer = null;
                     }
 

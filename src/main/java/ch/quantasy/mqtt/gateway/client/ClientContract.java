@@ -40,13 +40,13 @@
  *  *
  *  *
  */
-package ch.quantasy.mqtt.gateway.agent;
+package ch.quantasy.mqtt.gateway.client;
 
 /**
  *
  * @author reto
  */
-public class AgentContract {
+public class ClientContract {
 
     public final String ROOT_TOPIC;
     public final String ID;
@@ -58,7 +58,11 @@ public class AgentContract {
     public final String OFFLINE;
     public final String ONLINE;
 
-    public AgentContract(String rootTopic, String baseClass, String instanceID) {
+    public final String EVENT;
+    public final String INTENT;
+    public final String DESCRIPTION;
+
+    public ClientContract(String rootTopic, String baseClass, String instanceID) {
         ROOT_TOPIC = rootTopic;
         BASE_CLASS = baseClass;
         BASE_TOPIC = ROOT_TOPIC + "/" + BASE_CLASS;
@@ -69,12 +73,16 @@ public class AgentContract {
             ID_TOPIC = BASE_TOPIC;
         }
 
-        
+        EVENT = ID_TOPIC + "/event";
+        INTENT = ID_TOPIC + "/intent";
         STATUS = ID_TOPIC + "/status";
+        DESCRIPTION=BASE_TOPIC+"/description";
+
         STATUS_CONNECTION = STATUS + "/connection";
         OFFLINE = "offline";
         ONLINE = "online";
 
     }
+    
 
 }

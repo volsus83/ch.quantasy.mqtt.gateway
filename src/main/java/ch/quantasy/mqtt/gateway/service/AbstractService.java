@@ -77,7 +77,7 @@ public abstract class AbstractService<S extends ServiceContract> implements MQTT
     private Timer timer;
 
     private final MQTTParameters parameters;
-    private final S serviceContract;
+    private final S contract;
     private final MQTTCommunication communication;
     private final ObjectMapper mapper;
     private final HashMap<String, MqttMessage> statusMap;
@@ -93,9 +93,9 @@ public abstract class AbstractService<S extends ServiceContract> implements MQTT
         executorService = Executors.newCachedThreadPool();
     }
 
-    public AbstractService(URI mqttURI, String clientID, S serviceContract) throws MqttException {
+    public AbstractService(URI mqttURI, String clientID, S contract) throws MqttException {
         //I do not know if this is a great idea... Check with load-tests!
-        this.serviceContract = serviceContract;
+        this.contract = contract;
         statusMap = new HashMap<>();
         eventMap = new HashMap<>();
         contractDescriptionMap = new HashMap<>();
@@ -112,16 +112,16 @@ public abstract class AbstractService<S extends ServiceContract> implements MQTT
         parameters.setClientID(clientID);
         parameters.setIsCleanSession(false);
         parameters.setIsLastWillRetained(true);
-        parameters.setLastWillMessage(serviceContract.OFFLINE.getBytes());
+        parameters.setLastWillMessage(contract.OFFLINE.getBytes());
         parameters.setLastWillQoS(1);
         parameters.setServerURIs(mqttURI);
-        parameters.setWillTopic(serviceContract.STATUS_CONNECTION);
+        parameters.setWillTopic(contract.STATUS_CONNECTION);
         parameters.setMqttCallback(this);
         communication.connect(parameters);
-        communication.publishActualWill(serviceContract.ONLINE.getBytes());
-        communication.subscribe(serviceContract.INTENT + "/#", 1);
+        communication.publishActualWill(contract.ONLINE.getBytes());
+        communication.subscribe(contract.INTENT + "/#", 1);
 
-        addDescription(getServiceContract().STATUS_CONNECTION, "[" + getServiceContract().ONLINE + "|" + getServiceContract().OFFLINE + "]");
+        addDescription(getContract().STATUS_CONNECTION, "[" + getContract().ONLINE + "|" + getContract().OFFLINE + "]");
     }
 
     @Override
@@ -129,8 +129,8 @@ public abstract class AbstractService<S extends ServiceContract> implements MQTT
         //System.out.println("Delivery is done.");
     }
 
-    public S getServiceContract() {
-        return serviceContract;
+    public S getContract() {
+        return contract;
     }
 
     public ObjectMapper getMapper() {
@@ -197,8 +197,8 @@ public abstract class AbstractService<S extends ServiceContract> implements MQTT
             message.setQos(1);
             message.setRetained(true);
 
-            topic = topic.replaceFirst(getServiceContract().ID_TOPIC, "");
-            String descriptionTopic = getServiceContract().DESCRIPTION + topic;
+            topic = topic.replaceFirst(getContract().ID_TOPIC, "");
+            String descriptionTopic = getContract().DESCRIPTION + topic;
             contractDescriptionMap.put(descriptionTopic, message);
             communication.readyToPublish(this, descriptionTopic);
 
@@ -224,7 +224,7 @@ public abstract class AbstractService<S extends ServiceContract> implements MQTT
                     if (timer != null) {
                         communication.connect(parameters);
                         timer.cancel();
-                        communication.publishActualWill(mapper.writeValueAsBytes(serviceContract.ONLINE));
+                        communication.publishActualWill(mapper.writeValueAsBytes(contract.ONLINE));
                         timer = null;
                     }
 

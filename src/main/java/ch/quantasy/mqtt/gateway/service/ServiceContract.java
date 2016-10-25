@@ -42,46 +42,17 @@
  */
 package ch.quantasy.mqtt.gateway.service;
 
+import ch.quantasy.mqtt.gateway.client.ClientContract;
+
 /**
  *
  * @author reto
  */
-public class ServiceContract {
-
-    public final String ROOT_TOPIC;
-    public final String INSTANCE;
-    public final String ID_TOPIC;
-    public final String BASE_CLASS;
-    public final String BASE_TOPIC;
-    public final String STATUS;
-    public final String STATUS_CONNECTION;
-    public final String OFFLINE;
-    public final String ONLINE;
-
-    public final String EVENT;
-    public final String INTENT;
-    public final String DESCRIPTION;
+public class ServiceContract extends ClientContract{
 
     public ServiceContract(String rootTopic, String baseClass, String instance) {
-        ROOT_TOPIC = rootTopic;
-        BASE_CLASS = baseClass;
-        BASE_TOPIC = ROOT_TOPIC + "/" + BASE_CLASS;
-        INSTANCE = instance;
-        if (INSTANCE != null) {
-            ID_TOPIC = BASE_TOPIC + "/" + INSTANCE;
-        } else {
-            ID_TOPIC = BASE_TOPIC;
-        }
-
-        EVENT = ID_TOPIC + "/event";
-        INTENT = ID_TOPIC + "/intent";
-        STATUS = ID_TOPIC + "/status";
-        DESCRIPTION=BASE_TOPIC+"/description";
-
-        STATUS_CONNECTION = STATUS + "/connection";
-        OFFLINE = "offline";
-        ONLINE = "online";
-
+        super(rootTopic, baseClass, instance);
     }
+
     
 }
