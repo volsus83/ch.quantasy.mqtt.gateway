@@ -46,7 +46,7 @@ package ch.quantasy.mqtt.gateway.client;
  *
  * @author reto
  */
-public interface MessageConsumer {
+public interface MessageReceiver {
 
     /**
      * This is called within a new runnable! Be sure this method is programmed
@@ -61,5 +61,5 @@ public interface MessageConsumer {
      * @throws Exception Any exception is handled 'gracefully' within
      * GatewayClient.
      */
-    public void messageArrived(GatewayClient gatewayClient, String topic, byte[] mm) throws Exception;
+    public void messageReceived(String topic, byte[] mm) throws Exception;
 }

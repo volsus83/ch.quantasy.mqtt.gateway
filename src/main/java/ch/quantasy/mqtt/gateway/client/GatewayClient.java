@@ -84,7 +84,7 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
     private final S contract;
     private final MQTTCommunication communication;
     private final ObjectMapper mapper;
-    private final Map<String, Set<MessageConsumer>> messageConsumerMap;
+    private final Map<String, Set<MessageReceiver>> messageConsumerMap;
 
     private final Map<String, Deque<MqttMessage>> intentMap;
     private final HashMap<String, MqttMessage> statusMap;
@@ -128,8 +128,6 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
         parameters.setMqttCallback(this);
         communication.connect(parameters);
         communication.publishActualWill(contract.ONLINE.getBytes());
-        communication.subscribe(contract.INTENT + "/#", 1);
-
         addDescription(getContract().STATUS_CONNECTION, "[" + getContract().ONLINE + "|" + getContract().OFFLINE + "]");
     }
 
@@ -163,7 +161,7 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
         communication.disconnect();
     }
 
-    public synchronized void subscribe(String topic, MessageConsumer consumer) {
+    public synchronized void subscribe(String topic, MessageReceiver consumer) {
         if (!messageConsumerMap.containsKey(topic)) {
             messageConsumerMap.put(topic, new HashSet<>());
             communication.subscribe(topic, 1);
@@ -171,9 +169,9 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
         messageConsumerMap.get(topic).add(consumer);
     }
 
-    public synchronized void unsubscribe(String topic, MessageConsumer consumer) {
+    public synchronized void unsubscribe(String topic, MessageReceiver consumer) {
         if (messageConsumerMap.containsKey(topic)) {
-            Set<MessageConsumer> messageConsumers = messageConsumerMap.get(topic);
+            Set<MessageReceiver> messageConsumers = messageConsumerMap.get(topic);
             messageConsumers.remove(consumer);
             if (messageConsumers.isEmpty()) {
                 messageConsumerMap.remove(topic);
@@ -261,7 +259,7 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
         }
     }
 
-    protected void addEvent(String topic, Object event) {
+    public void addEvent(String topic, Object event) {
         List<Object> eventList = eventMap.get(topic);
         if (eventList == null) {
             eventList = new LinkedList<>();
@@ -271,7 +269,7 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
         this.communication.readyToPublish(this, topic);
     }
 
-    protected void addStatus(String topic, Object status) {
+    public void addStatus(String topic, Object status) {
         try {
             MqttMessage message = null;
             if (status != null) {
@@ -290,7 +288,7 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
         }
     }
 
-    protected void addDescription(String topic, Object description) {
+    public void addDescription(String topic, Object description) {
         try {
             MqttMessage message = new MqttMessage(mapper.writeValueAsBytes(description));
             message.setQos(1);
@@ -344,7 +342,7 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
         if (payload == null) {
             return;
         }
-        Set<MessageConsumer> messageConsumers = new HashSet<>();
+        Set<MessageReceiver> messageConsumers = new HashSet<>();
         synchronized (this) {
             for (String subscribedTopic : this.messageConsumerMap.keySet()) {
                 if (compareTopic(topic, subscribedTopic)) {
@@ -354,13 +352,13 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
         }
         //This way, even if a consumer has been subscribed itself under multiple topic-filters,
         //it is only called once per topic match.
-        for (MessageConsumer consumer : messageConsumers) {
+        for (MessageReceiver consumer : messageConsumers) {
             executorService.submit(new Runnable() {
                 @Override
                 //Not so sure if this is a great idea... Check it!
                 public void run() {
                     try {
-                        consumer.messageArrived(GatewayClient.this, topic, payload);
+                        consumer.messageReceived(topic, payload);
                     } catch (Exception ex) {
                         Logger.getLogger(getClass().
                                 getName()).log(Level.INFO, null, ex);
