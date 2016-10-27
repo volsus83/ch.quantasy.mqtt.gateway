@@ -101,7 +101,6 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
     }
 
     public GatewayClient(URI mqttURI, String clientID, S contract) throws MqttException {
-        //I do not know if this is a great idea... Check with load-tests!
         this.contract = contract;
         messageConsumerMap = new HashMap<>();
         intentMap = new HashMap<>();
@@ -249,7 +248,7 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
             message.setRetained(true);
             topic = topic + "/" + contract.ID;
             Deque<MqttMessage> intents = intentMap.get(topic);
-            if (intent == null) {
+            if (intents == null) {
                 intents = new LinkedList<>();
                 intentMap.put(topic, intents);
             }
