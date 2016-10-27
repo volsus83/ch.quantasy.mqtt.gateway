@@ -109,6 +109,12 @@ public abstract class AbstractService<S extends ServiceContract> implements Mess
         return gatewayClient.getMapper();
     }
 
+    public GatewayClient<S> getGatewayClient() {
+        return gatewayClient;
+    }
+    
+    
+
     /**
      * This is called within a new runnable! Be sure this method is programmed
      * thread safe!

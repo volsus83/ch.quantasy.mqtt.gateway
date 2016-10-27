@@ -61,5 +61,5 @@ public interface MessageReceiver {
      * @throws Exception Any exception is handled 'gracefully' within
      * GatewayClient.
      */
-    public void messageReceived(String topic, byte[] mm) throws Exception;
+    public void messageReceived(String topic, byte[] payload) throws Exception;
 }
