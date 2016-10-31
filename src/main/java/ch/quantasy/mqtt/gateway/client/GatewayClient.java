@@ -88,7 +88,7 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
 
     private final Map<String, Deque<MqttMessage>> intentMap;
     private final HashMap<String, MqttMessage> statusMap;
-    private final HashMap<String, List<Object>> eventMap;
+    private final HashMap<String, LinkedList<Object>> eventMap;
     private final HashMap<String, MqttMessage> contractDescriptionMap;
 
     /**
@@ -260,12 +260,12 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
     }
 
     public void addEvent(String topic, Object event) {
-        List<Object> eventList = eventMap.get(topic);
+        LinkedList<Object> eventList = eventMap.get(topic);
         if (eventList == null) {
             eventList = new LinkedList<>();
             eventMap.put(topic, eventList);
         }
-        eventList.add(event);
+        eventList.addFirst(event);
         this.communication.readyToPublish(this, topic);
     }
 
@@ -333,7 +333,7 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
     }
 
     public static boolean compareTopic(final String actualTopic, final String subscribedTopic) {
-        return actualTopic.matches(subscribedTopic.replaceAll("\\+", "[^/]+").replaceAll("#", ".+"));
+        return actualTopic.matches(subscribedTopic.replaceAll("\\+", "[^/]+").replaceAll("/#", "(|/.*)"));
     }
 
     @Override
