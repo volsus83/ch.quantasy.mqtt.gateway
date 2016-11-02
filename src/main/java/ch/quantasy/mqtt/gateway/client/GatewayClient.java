@@ -127,9 +127,13 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
         parameters.setServerURIs(mqttURI);
         parameters.setWillTopic(contract.STATUS_CONNECTION);
         parameters.setMqttCallback(this);
-        communication.connect(parameters);
-        communication.publishActualWill(contract.ONLINE.getBytes());
+        //communication.connect(parameters);
+        //communication.publishActualWill(contract.ONLINE.getBytes());
         addDescription(getContract().STATUS_CONNECTION, "[" + getContract().ONLINE + "|" + getContract().OFFLINE + "]");
+    }
+
+    public MQTTParameters getParameters() {
+        return parameters;
     }
 
     public void connect() throws MqttException {
@@ -137,13 +141,10 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
             return;
         }
         communication.connect(parameters);
-        try {
-            communication.publishActualWill(mapper.writeValueAsBytes(Boolean.TRUE));
-            for (String subscription : messageConsumerMap.keySet()) {
-                communication.subscribe(subscription, 1);
-            }
-        } catch (JsonProcessingException ex) {
-            Logger.getLogger(GatewayClient.class.getName()).log(Level.SEVERE, null, ex);
+
+        communication.publishActualWill(contract.ONLINE.getBytes());
+        for (String subscription : messageConsumerMap.keySet()) {
+            communication.subscribe(subscription, 1);
         }
     }
 
@@ -261,14 +262,14 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
     }
 
     public void addEvent(String topic, Object eventValue, long timestamp) {
-        addEvent(topic, new GatewayClientEvent<>(eventValue, timestamp));
+        addEvent(topic, new GCEvent<>(eventValue, timestamp));
     }
 
     public void addEvent(String topic, Object eventValue) {
-        addEvent(topic, new GatewayClientEvent<>(eventValue));
+        addEvent(topic, new GCEvent<>(eventValue));
     }
 
-    public void addEvent(String topic, GatewayClientEvent event) {
+    public void addEvent(String topic, GCEvent event) {
         LinkedList<Object> eventList = eventMap.get(topic);
         if (eventList == null) {
             eventList = new LinkedList<>();
@@ -333,6 +334,11 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
                         timer.cancel();
                         communication.publishActualWill(mapper.writeValueAsBytes(contract.ONLINE));
                         timer = null;
+                        for (String topic : messageConsumerMap.keySet()) {
+                            communication.subscribe(topic, 1);
+                        }
+                        System.out.println("Connection and topic-subscriptions re-established");
+
                     }
 
                 } catch (Exception ex) {
@@ -382,7 +388,7 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
     //This works if the other one is too slow! Test its speed.
     //GatewayClientEvent<PhysicalMemory>[] events = getMapper().readValue(payload, new TypeReference<GatewayClientEvent<PhysicalMemory>[]>() { });
     public <T> T toEventArray(byte[] payload, Class<?> eventValue) throws Exception {
-        JavaType javaType = getMapper().getTypeFactory().constructParametricType(GatewayClientEvent.class, eventValue);
+        JavaType javaType = getMapper().getTypeFactory().constructParametricType(GCEvent.class, eventValue);
         JavaType endType = getMapper().getTypeFactory().constructArrayType(javaType);
         return getMapper().readValue(payload, endType);
     }

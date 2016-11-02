@@ -100,6 +100,7 @@ public class MQTTCommunication implements IMqttActionListener {
             publisherThread.setDaemon(true);
             publisherThread.start();
         }
+        notifyAll();
     }
 
     public synchronized IMqttDeliveryToken publishActualWill(byte[] actualWill) {
@@ -202,17 +203,24 @@ public class MQTTCommunication implements IMqttActionListener {
 
         @Override
         public void run() {
-            while (MQTTCommunication.this.isConnected()) {
+            while (true) {
                 try {
                     PublishRequest publishRequest = publishingQueue.take();
                     MqttMessage message = publishRequest.getMessage();
-                    if (MQTTCommunication.this.isConnected() && message != null) {
+                    while (message != null) {
+                        synchronized (MQTTCommunication.this) {
+                            while (!MQTTCommunication.this.isConnected()) {
+                                MQTTCommunication.this.wait(1000);
+                            }
+                        }
                         IMqttDeliveryToken token = publish(publishRequest.topic, message);
                         if (token == null) {
-                            Logger.getLogger(MQTTCommunication.class.getName()).log(Level.SEVERE, null, "Message for " + publishRequest + " lost.");
+                            Logger.getLogger(MQTTCommunication.class.getName()).log(Level.SEVERE, null, "Message for " + publishRequest + " lost... Will try again");
                         } else {
                             token.waitForCompletion();
+                            message = null;
                         }
+
                     }
                 } catch (InterruptedException | MqttException ex) {
                     Logger.getLogger(MQTTCommunication.class.getName()).log(Level.SEVERE, null, ex);

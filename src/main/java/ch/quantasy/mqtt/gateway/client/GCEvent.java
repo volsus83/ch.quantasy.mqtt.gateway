@@ -48,20 +48,20 @@ import java.util.Objects;
  * @author reto
  * @param <V>
  */
-public class GatewayClientEvent<V extends Object> {
+public class GCEvent<V extends Object> {
 
     private long timestamp;
     private V value;
 
-    private GatewayClientEvent() {
+    private GCEvent() {
 
     }
 
-    public GatewayClientEvent(V value) {
+    public GCEvent(V value) {
         this(value, System.currentTimeMillis());
     }
 
-    public GatewayClientEvent(V value, long timestamp) {
+    public GCEvent(V value, long timestamp) {
         this.value = value;
         this.timestamp = timestamp;
     }
@@ -93,7 +93,7 @@ public class GatewayClientEvent<V extends Object> {
         if (getClass() != obj.getClass()) {
             return false;
         }
-        final GatewayClientEvent<?> other = (GatewayClientEvent<?>) obj;
+        final GCEvent<?> other = (GCEvent<?>) obj;
         if (this.timestamp != other.timestamp) {
             return false;
         }
