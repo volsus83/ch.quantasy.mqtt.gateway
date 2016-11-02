@@ -42,31 +42,10 @@
  */
 package ch.quantasy.mqtt.gateway.service;
 
-import ch.quantasy.mqtt.communication.mqtt.MQTTCommunication;
-import ch.quantasy.mqtt.communication.mqtt.MQTTParameters;
-import ch.quantasy.mqtt.gateway.client.ClientContract;
 import ch.quantasy.mqtt.gateway.client.GatewayClient;
-import com.fasterxml.jackson.annotation.JsonAutoDetect;
-
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.introspect.VisibilityChecker;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import java.net.URI;
-import java.util.HashMap;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import org.eclipse.paho.client.mqttv3.MqttException;
-import org.eclipse.paho.client.mqttv3.MqttMessage;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Timer;
-import java.util.TimerTask;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import ch.quantasy.mqtt.gateway.client.MessageReceiver;
 
 /**
@@ -92,6 +71,10 @@ public abstract class AbstractService<S extends ServiceContract> implements Mess
     public void addEvent(String topic, Object value){
         gatewayClient.addEvent(topic, value);
     }
+    public void addEvent(String topic, Object value,long timestamp){
+        gatewayClient.addEvent(topic, value,timestamp);
+    }
+    
     
     public void addIntent(String topic, Object value){
         gatewayClient.addIntent(topic, value);

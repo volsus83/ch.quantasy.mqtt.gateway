@@ -49,6 +49,7 @@ import com.fasterxml.jackson.annotation.JsonAutoDetect;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.introspect.VisibilityChecker;
@@ -259,7 +260,15 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
         }
     }
 
-    public void addEvent(String topic, Object event) {
+    public void addEvent(String topic, Object eventValue, long timestamp) {
+        addEvent(topic, new GatewayClientEvent<>(eventValue, timestamp));
+    }
+
+    public void addEvent(String topic, Object eventValue) {
+        addEvent(topic, new GatewayClientEvent<>(eventValue));
+    }
+
+    public void addEvent(String topic, GatewayClientEvent event) {
         LinkedList<Object> eventList = eventMap.get(topic);
         if (eventList == null) {
             eventList = new LinkedList<>();
@@ -368,5 +377,13 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
 
         }
 
+    }
+
+    //This works if the other one is too slow! Test its speed.
+    //GatewayClientEvent<PhysicalMemory>[] events = getMapper().readValue(payload, new TypeReference<GatewayClientEvent<PhysicalMemory>[]>() { });
+    public <T> T toEventArray(byte[] payload, Class<?> eventValue) throws Exception {
+        JavaType javaType = getMapper().getTypeFactory().constructParametricType(GatewayClientEvent.class, eventValue);
+        JavaType endType = getMapper().getTypeFactory().constructArrayType(javaType);
+        return getMapper().readValue(payload, endType);
     }
 }
