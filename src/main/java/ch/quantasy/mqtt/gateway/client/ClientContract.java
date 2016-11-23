@@ -48,9 +48,9 @@ package ch.quantasy.mqtt.gateway.client;
  */
 public class ClientContract {
 
-    public final String ROOT_TOPIC;
-    public final String ID;
-    public final String ID_TOPIC;
+    public final String ROOT_CONTEXT;
+    public final String INSTANCE;
+    public final String CANONICAL_TOPIC;
     public final String BASE_CLASS;
     public final String BASE_TOPIC;
     public final String STATUS;
@@ -61,22 +61,26 @@ public class ClientContract {
     public final String EVENT;
     public final String INTENT;
     public final String DESCRIPTION;
+    
+    public ClientContract(String rootContext, String baseClass){
+        this(rootContext,baseClass,null);
+    }
 
-    public ClientContract(String rootTopic, String baseClass, String instanceID) {
-        ROOT_TOPIC = rootTopic;
+    public ClientContract(String rootContext, String baseClass, String instance) {
+        ROOT_CONTEXT = rootContext;
         BASE_CLASS = baseClass;
-        BASE_TOPIC = ROOT_TOPIC + "/" + BASE_CLASS;
-        ID = instanceID;
-        if (ID != null) {
-            ID_TOPIC = BASE_TOPIC + "/" + ID;
+        BASE_TOPIC = ROOT_CONTEXT + "/" + BASE_CLASS;
+        INSTANCE = instance;
+        if (INSTANCE != null) {
+            CANONICAL_TOPIC = BASE_TOPIC + "/" + INSTANCE;
         } else {
-            ID_TOPIC = BASE_TOPIC;
+            CANONICAL_TOPIC = BASE_TOPIC;
         }
 
-        EVENT = ID_TOPIC + "/event";
-        INTENT = ID_TOPIC + "/intent";
-        STATUS = ID_TOPIC + "/status";
-        DESCRIPTION=BASE_TOPIC+"/description";
+        EVENT = CANONICAL_TOPIC + "/E";
+        INTENT = CANONICAL_TOPIC + "/I";
+        STATUS = CANONICAL_TOPIC + "/S";
+        DESCRIPTION=BASE_TOPIC+"/D";
 
         STATUS_CONNECTION = STATUS + "/connection";
         OFFLINE = "offline";

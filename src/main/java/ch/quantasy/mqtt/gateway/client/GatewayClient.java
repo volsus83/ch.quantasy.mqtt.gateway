@@ -246,7 +246,7 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
             }
             message.setQos(1);
             message.setRetained(true);
-            topic = topic + "/" + contract.ID;
+            topic = topic + "/" + contract.INSTANCE;
             Deque<MqttMessage> intents = intentMap.get(topic);
             if (intents == null) {
                 intents = new LinkedList<>();
@@ -304,7 +304,7 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
             message.setQos(1);
             message.setRetained(true);
 
-            topic = topic.replaceFirst(getContract().ID_TOPIC, "");
+            topic = topic.replaceFirst(getContract().CANONICAL_TOPIC, "");
             String descriptionTopic = getContract().DESCRIPTION + topic;
             contractDescriptionMap.put(descriptionTopic, message);
             communication.readyToPublish(this, descriptionTopic);
