@@ -129,7 +129,7 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
         parameters.setMqttCallback(this);
         //communication.connect(parameters);
         //communication.publishActualWill(contract.ONLINE.getBytes());
-        addDescription(getContract().STATUS_CONNECTION, "[" + getContract().ONLINE + "|" + getContract().OFFLINE + "]");
+        publishDescription(getContract().STATUS_CONNECTION, "[" + getContract().ONLINE + "|" + getContract().OFFLINE + "]");
     }
 
     public MQTTParameters getParameters() {
@@ -236,7 +236,7 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
         intentMap.put(topic, null);
     }
 
-    public void addIntent(String topic, Object intent) {
+    public void publishIntent(String topic, Object intent) {
         try {
             MqttMessage message = null;
             if (intent != null) {
@@ -261,15 +261,15 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
         }
     }
 
-    public void addEvent(String topic, Object eventValue, long timestamp) {
-        addEvent(topic, new GCEvent<>(eventValue, timestamp));
+    public void publishEvent(String topic, Object eventValue, long timestamp) {
+        publishEvent(topic, new GCEvent<>(eventValue, timestamp));
     }
 
-    public void addEvent(String topic, Object eventValue) {
-        addEvent(topic, new GCEvent<>(eventValue));
+    public void publishEvent(String topic, Object eventValue) {
+        publishEvent(topic, new GCEvent<>(eventValue));
     }
 
-    public void addEvent(String topic, GCEvent event) {
+    public void publishEvent(String topic, GCEvent event) {
         LinkedList<Object> eventList = eventMap.get(topic);
         if (eventList == null) {
             eventList = new LinkedList<>();
@@ -279,7 +279,7 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
         this.communication.readyToPublish(this, topic);
     }
 
-    public void addStatus(String topic, Object status) {
+    public void publishStatus(String topic, Object status) {
         try {
             MqttMessage message = null;
             if (status != null) {
@@ -298,7 +298,7 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
         }
     }
 
-    public void addDescription(String topic, Object description) {
+    public void publishDescription(String topic, Object description) {
         try {
             MqttMessage message = new MqttMessage(mapper.writeValueAsBytes(description));
             message.setQos(1);
