@@ -181,6 +181,9 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
             }
         }
     }
+    public Set<String> getSubscriptionTopics(){
+        return messageConsumerMap.keySet();
+    }
 
     @Override
     public void deliveryComplete(IMqttDeliveryToken imdt) {
