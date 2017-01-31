@@ -181,7 +181,8 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
             }
         }
     }
-    public Set<String> getSubscriptionTopics(){
+
+    public Set<String> getSubscriptionTopics() {
         return messageConsumerMap.keySet();
     }
 
@@ -335,8 +336,9 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
                     if (timer != null) {
                         communication.connect(parameters);
                         timer.cancel();
-                        communication.publishActualWill(mapper.writeValueAsBytes(contract.ONLINE));
                         timer = null;
+
+                        communication.publishActualWill(mapper.writeValueAsBytes(contract.ONLINE));
                         for (String topic : messageConsumerMap.keySet()) {
                             communication.subscribe(topic, 1);
                         }
