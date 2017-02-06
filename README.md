@@ -4,8 +4,8 @@
 ch.quantasy.mqtt.gateway
 
 This is a wrapper to [paho]'s [MQTT] library and allows to design data driven programs e.g. micro-services supporting the following general API:
-<a href="https://github.com/knr1/ch.quantasy.mqtt.gateway/blob/master/TiMqWayService.svg">
-<img src="https://github.com/knr1/ch.quantasy.mqtt.gateway/blob/master/TiMqWayService.svg.png" alt="Service-Diagram" />
+<a href="https://github.com/knr1/ch.quantasy.mqtt.gateway/blob/master/MqttGatewayClient.svg">
+<img src="https://github.com/knr1/ch.quantasy.mqtt.gateway/blob/master/MqttGatewayClient.svg.png" alt="Service-Diagram" />
 </a>
 ##API towards MQTT
 The idea of this MQTT-Gateway is to provide some very generic but common API. There is nothing new, the following ideas are borrowed from different design ideologies. The idea
