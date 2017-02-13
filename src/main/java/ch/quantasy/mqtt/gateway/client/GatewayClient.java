@@ -132,6 +132,10 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
         publishDescription(getContract().STATUS_CONNECTION, "[" + getContract().ONLINE + "|" + getContract().OFFLINE + "]");
     }
 
+    /**
+     * 
+     * @return 
+     */
     public MQTTParameters getParameters() {
         return parameters;
     }
@@ -163,6 +167,11 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
         communication.disconnect();
     }
 
+    /**
+     * 
+     * @param topic
+     * @param consumer 
+     */
     public synchronized void subscribe(String topic, MessageReceiver consumer) {
         if (!messageConsumerMap.containsKey(topic)) {
             messageConsumerMap.put(topic, new HashSet<>());
@@ -240,6 +249,13 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
         intentMap.put(topic, null);
     }
 
+    /**
+     * Convenience method, in order to send some intent to a topic.
+     * This method should not be used if the GatewayClient serves a service.
+     * This method should be used by Servants (in order to orchestrate services) and Agents (in order to choreograph Servants)
+     * @param topic This is usually the intent topic for some service.
+     * @param intent The actual intent
+     */
     public void publishIntent(String topic, Object intent) {
         try {
             MqttMessage message = null;
@@ -323,7 +339,7 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
     public void connectionLost(Throwable thrwbl) {
         Logger.getLogger(GatewayClient.class
                 .getName()).log(Level.SEVERE, null, thrwbl);
-        System.out.println("Ouups, lost connection to subscriptions... will try again in some seconds");
+        System.out.println("Connection to subscriptions lost... will try again in 3 seconds");
         if (this.timer != null) {
             return;
         }
