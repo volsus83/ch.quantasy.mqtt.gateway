@@ -66,6 +66,15 @@ This convenience method is used, in order to send the description of the service
 This method should be used in the very beginning only and should not change during life-time... It describes the abilities of the Service / Servant.
 
 
+##Full Micro-Service
+With the GatewayClient towards MQTT and the API towards the native programming language (Java), now the following generic composition can be used, in order to
+provide micro-service capabilities to native programs, using a MVP (Model View Presenter) pattern, where the native program serves as 'model' (or source) and the MQTT side serves as 'view'. 
+<a href="https://github.com/knr1/ch.quantasy.mqtt.gateway/blob/master/Micro-service.svg">
+<img src="https://github.com/knr1/ch.quantasy.mqtt.gateway/blob/master/Micro-service.svg.png" alt="Micro-service-Diagram" />
+</a>
+
+
+
 [paho]: <https://github.com/eclipse/paho.mqtt.java>
 [YAML]: <https://en.wikipedia.org/wiki/YAML>
 [MQTT]: <http://mqtt.org/>
