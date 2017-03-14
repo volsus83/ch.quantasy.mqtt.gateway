@@ -250,7 +250,7 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
     }
 
     /**
-     * Convenience method, in order to send some intent to a topic.
+     * Convenience method, in order to send some intent to a topic. The intent is guaranteed to be sent as soon as possible within order.
      * This method should not be used if the GatewayClient serves a service.
      * This method should be used by Servants (in order to orchestrate services) and Agents (in order to choreograph Servants)
      * @param topic This is usually the intent topic for some service.
@@ -281,6 +281,13 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
         }
     }
 
+    /**
+     * Each event for the same topic is sent within an array, as soon as sending becomes possible.
+     * This may result in an array of multiple events, whereas the most recent event will be at position 0.
+     * @param topic
+     * @param eventValue
+     * @param timestamp 
+     */
     public void publishEvent(String topic, Object eventValue, long timestamp) {
         publishEvent(topic, new GCEvent<>(eventValue, timestamp));
     }
@@ -299,6 +306,13 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
         this.communication.readyToPublish(this, topic);
     }
 
+    /**
+     * The most recent status for the same topic is beeing sent as soon as possible.
+     * This may result in a loss of some status, as the services changes the status before the old one could have been sent.
+
+     * @param topic
+     * @param status 
+     */
     public void publishStatus(String topic, Object status) {
         try {
             MqttMessage message = null;
