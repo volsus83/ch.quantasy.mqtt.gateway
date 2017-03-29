@@ -176,12 +176,14 @@ public class MQTTCommunication implements IMqttActionListener {
 
     @Override
     public void onSuccess(IMqttToken imt) {
-        System.out.printf("Success");
+        Logger.getLogger(MQTTCommunication.class
+                    .getName()).log(Level.INFO, null, "success");
     }
 
     @Override
     public void onFailure(IMqttToken imt, Throwable thrwbl) {
-        System.out.println("Fail" + thrwbl.toString());
+        Logger.getLogger(MQTTCommunication.class
+                    .getName()).log(Level.SEVERE, null, thrwbl);
     }
 
     class Publisher implements Runnable {

@@ -95,10 +95,10 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
     /**
      * One executorService pool for all implemented Services within a JVM
      */
-    private final static ExecutorService executorService;
+    private final static ExecutorService EXECUTOR_SERVICE;
 
     static {
-        executorService = Executors.newCachedThreadPool();
+        EXECUTOR_SERVICE = Executors.newCachedThreadPool();
     }
 
     public GatewayClient(URI mqttURI, String clientID, S contract) throws MqttException {
@@ -143,6 +143,10 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
     public void connect() throws MqttException {
         if (communication.isConnected()) {
             return;
+        }
+        if(getSubscriptionTopics().isEmpty()){
+            MQTTParameters params=new MQTTParameters(parameters);
+            communication.connect(params);
         }
         communication.connect(parameters);
 
@@ -258,7 +262,7 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
      */
     public void publishIntent(String topic, Object intent) {
         try {
-            MqttMessage message = null;
+            MqttMessage message;
             if (intent != null) {
                 message = new MqttMessage(mapper.writeValueAsBytes(intent));
             } else {
@@ -315,7 +319,7 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
      */
     public void publishStatus(String topic, Object status) {
         try {
-            MqttMessage message = null;
+            MqttMessage message;
             if (status != null) {
                 message = new MqttMessage(mapper.writeValueAsBytes(status));
             } else {
@@ -352,8 +356,7 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
     @Override
     public void connectionLost(Throwable thrwbl) {
         Logger.getLogger(GatewayClient.class
-                .getName()).log(Level.SEVERE, null, thrwbl);
-        System.out.println("Connection to subscriptions lost... will try again in 3 seconds");
+                .getName()).log(Level.SEVERE, "Connection to subscriptions lost... will try again in 3 seconds", thrwbl);
         if (this.timer != null) {
             return;
         }
@@ -372,11 +375,12 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
                         for (String topic : messageConsumerMap.keySet()) {
                             communication.subscribe(topic, 1);
                         }
-                        System.out.println("Connection and topic-subscriptions re-established");
+                        Logger.getLogger(GatewayClient.class
+                    .getName()).log(Level.INFO, "Connection and topic-subscriptions re-established");
 
                     }
 
-                } catch (Exception ex) {
+                } catch (JsonProcessingException | MqttException ex) {
                 }
             }
         }, 0, 3000);
@@ -403,7 +407,7 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
         //This way, even if a consumer has been subscribed itself under multiple topic-filters,
         //it is only called once per topic match.
         for (MessageReceiver consumer : messageConsumers) {
-            executorService.submit(new Runnable() {
+            EXECUTOR_SERVICE.submit(new Runnable() {
                 @Override
                 //Not so sure if this is a great idea... Check it!
                 public void run() {
