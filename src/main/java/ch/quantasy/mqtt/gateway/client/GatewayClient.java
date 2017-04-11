@@ -129,7 +129,8 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
         parameters.setMqttCallback(this);
         //communication.connect(parameters);
         //communication.publishActualWill(contract.ONLINE.getBytes());
-        publishDescription(getContract().STATUS_CONNECTION, "[" + getContract().ONLINE + "|" + getContract().OFFLINE + "]");
+        //publishDescription(getContract().STATUS_CONNECTION, "[" + getContract().ONLINE + "|" + getContract().OFFLINE + "]");
+        contract.publishContracts(this);
     }
 
     /**
