@@ -42,11 +42,14 @@
  */
 package ch.quantasy.mqtt.gateway.client;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  *
  * @author reto
  */
-public class ClientContract {
+public abstract class ClientContract {
 
     public final String ROOT_CONTEXT;
     public final String INSTANCE;
@@ -61,9 +64,9 @@ public class ClientContract {
     public final String EVENT;
     public final String INTENT;
     public final String DESCRIPTION;
-    
-    public ClientContract(String rootContext, String baseClass){
-        this(rootContext,baseClass,null);
+
+    public ClientContract(String rootContext, String baseClass) {
+        this(rootContext, baseClass, null);
     }
 
     public ClientContract(String rootContext, String baseClass, String instance) {
@@ -80,13 +83,24 @@ public class ClientContract {
         EVENT = CANONICAL_TOPIC + "/E";
         INTENT = CANONICAL_TOPIC + "/I";
         STATUS = CANONICAL_TOPIC + "/S";
-        DESCRIPTION=BASE_TOPIC+"/D";
+        DESCRIPTION = BASE_TOPIC + "/D";
 
         STATUS_CONNECTION = STATUS + "/connection";
         OFFLINE = "offline";
         ONLINE = "online";
-
     }
-    
+
+    public void publishContracts(GatewayClient gatewayClient) {
+
+        Map<String, String> descriptions = new HashMap<>();
+        describe(descriptions);
+        descriptions.put(STATUS_CONNECTION, "[" + ONLINE + "|" + OFFLINE + "]");
+
+        for (Map.Entry<String, String> description : descriptions.entrySet()) {
+            gatewayClient.publishDescription(description.getKey(), description.getValue());
+        }
+    }
+
+    protected abstract void describe(Map<String, String> descriptions);
 
 }
