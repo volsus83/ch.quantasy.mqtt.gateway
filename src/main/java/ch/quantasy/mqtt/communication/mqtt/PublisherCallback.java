@@ -48,6 +48,7 @@ import org.eclipse.paho.client.mqttv3.MqttMessage;
  *
  * @author reto
  */
-public interface PublisherCallback{
+public interface PublisherCallback {
+
     public MqttMessage getMessageToPublish(String topic);
 }

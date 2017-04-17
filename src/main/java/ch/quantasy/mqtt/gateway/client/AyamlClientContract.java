@@ -42,65 +42,38 @@
  */
 package ch.quantasy.mqtt.gateway.client;
 
-import java.util.HashMap;
-import java.util.Map;
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.MapperFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.introspect.VisibilityChecker;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 
 /**
  *
  * @author reto
  */
-public abstract class ClientContract {
+public abstract class AyamlClientContract extends AClientContract {
 
-    public final String ROOT_CONTEXT;
-    public final String INSTANCE;
-    public final String CANONICAL_TOPIC;
-    public final String BASE_CLASS;
-    public final String BASE_TOPIC;
-    public final String STATUS;
-    public final String STATUS_CONNECTION;
-    public final String OFFLINE;
-    public final String ONLINE;
+    private final ObjectMapper mapper;
 
-    public final String EVENT;
-    public final String INTENT;
-    public final String DESCRIPTION;
-
-    public ClientContract(String rootContext, String baseClass) {
+    public AyamlClientContract(String rootContext, String baseClass) {
         this(rootContext, baseClass, null);
     }
 
-    public ClientContract(String rootContext, String baseClass, String instance) {
-        ROOT_CONTEXT = rootContext;
-        BASE_CLASS = baseClass;
-        BASE_TOPIC = ROOT_CONTEXT + "/" + BASE_CLASS;
-        INSTANCE = instance;
-        if (INSTANCE != null) {
-            CANONICAL_TOPIC = BASE_TOPIC + "/" + INSTANCE;
-        } else {
-            CANONICAL_TOPIC = BASE_TOPIC;
-        }
+    public AyamlClientContract(String rootContext, String baseClass, String instance) {
+        super(rootContext, baseClass, instance);
+        mapper = new ObjectMapper(new YAMLFactory());
+        mapper.setVisibility(VisibilityChecker.Std.defaultInstance().withFieldVisibility(JsonAutoDetect.Visibility.ANY)
+                .withGetterVisibility(JsonAutoDetect.Visibility.NONE)
+                .withSetterVisibility(JsonAutoDetect.Visibility.NONE)
+                .withCreatorVisibility(JsonAutoDetect.Visibility.NONE));
+        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
-        EVENT = CANONICAL_TOPIC + "/E";
-        INTENT = CANONICAL_TOPIC + "/I";
-        STATUS = CANONICAL_TOPIC + "/S";
-        DESCRIPTION = BASE_TOPIC + "/D";
-
-        STATUS_CONNECTION = STATUS + "/connection";
-        OFFLINE = "offline";
-        ONLINE = "online";
+        mapper.configure(MapperFeature.PROPAGATE_TRANSIENT_MARKER, true);
     }
 
-    public void publishContracts(GatewayClient gatewayClient) {
-
-        Map<String, String> descriptions = new HashMap<>();
-        describe(descriptions);
-        descriptions.put(STATUS_CONNECTION, "[" + ONLINE + "|" + OFFLINE + "]");
-
-        for (Map.Entry<String, String> description : descriptions.entrySet()) {
-            gatewayClient.publishDescription(description.getKey(), description.getValue());
-        }
+    public ObjectMapper getObjectMapper() {
+        return mapper;
     }
-
-    protected abstract void describe(Map<String, String> descriptions);
-
 }

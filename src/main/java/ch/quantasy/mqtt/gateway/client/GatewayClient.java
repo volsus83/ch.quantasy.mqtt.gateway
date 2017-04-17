@@ -45,15 +45,10 @@ package ch.quantasy.mqtt.gateway.client;
 import ch.quantasy.mqtt.communication.mqtt.MQTTCommunication;
 import ch.quantasy.mqtt.communication.mqtt.MQTTCommunicationCallback;
 import ch.quantasy.mqtt.communication.mqtt.MQTTParameters;
-import com.fasterxml.jackson.annotation.JsonAutoDetect;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JavaType;
-import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.introspect.VisibilityChecker;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import java.net.URI;
 import java.util.Deque;
 import java.util.HashMap;
@@ -77,14 +72,13 @@ import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
  * @author reto
  * @param <S>
  */
-public class GatewayClient<S extends ClientContract> implements MQTTCommunicationCallback {
+public class GatewayClient<S extends AClientContract> implements MQTTCommunicationCallback {
 
     private Timer timer;
 
     private final MQTTParameters parameters;
     private final S contract;
     private final MQTTCommunication communication;
-    private final ObjectMapper mapper;
     private final Map<String, Set<MessageReceiver>> messageConsumerMap;
 
     private final Map<String, Deque<MqttMessage>> intentMap;
@@ -109,14 +103,6 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
         statusMap = new HashMap<>();
         eventMap = new HashMap<>();
         contractDescriptionMap = new HashMap<>();
-        mapper = new ObjectMapper(new YAMLFactory());
-        mapper.setVisibility(VisibilityChecker.Std.defaultInstance().withFieldVisibility(JsonAutoDetect.Visibility.ANY)
-                .withGetterVisibility(JsonAutoDetect.Visibility.NONE)
-                .withSetterVisibility(JsonAutoDetect.Visibility.NONE)
-                .withCreatorVisibility(JsonAutoDetect.Visibility.NONE));
-        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-
-        mapper.configure(MapperFeature.PROPAGATE_TRANSIENT_MARKER, true);
         communication = new MQTTCommunication();
         parameters = new MQTTParameters();
         parameters.setClientID(clientID);
@@ -134,8 +120,8 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
     }
 
     /**
-     * 
-     * @return 
+     *
+     * @return
      */
     public MQTTParameters getParameters() {
         return parameters;
@@ -145,8 +131,8 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
         if (communication.isConnected()) {
             return;
         }
-        if(getSubscriptionTopics().isEmpty()){
-            MQTTParameters params=new MQTTParameters(parameters);
+        if (getSubscriptionTopics().isEmpty()) {
+            MQTTParameters params = new MQTTParameters(parameters);
             communication.connect(params);
         }
         communication.connect(parameters);
@@ -162,7 +148,7 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
             return;
         }
         try {
-            communication.publishActualWill(mapper.writeValueAsBytes(Boolean.FALSE));
+            communication.publishActualWill(getMapper().writeValueAsBytes(Boolean.FALSE));
             for (String subscription : messageConsumerMap.keySet()) {
                 communication.unsubscribe(subscription);
             }
@@ -173,9 +159,9 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
     }
 
     /**
-     * 
+     *
      * @param topic
-     * @param consumer 
+     * @param consumer
      */
     public synchronized void subscribe(String topic, MessageReceiver consumer) {
         if (!messageConsumerMap.containsKey(topic)) {
@@ -210,7 +196,7 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
     }
 
     public ObjectMapper getMapper() {
-        return mapper;
+        return contract.getObjectMapper();
     }
 
     @Override
@@ -230,7 +216,7 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
         if (eventList != null) {
             eventMap.put(topic, new LinkedList<>());
             try {
-                message = new MqttMessage(mapper.writeValueAsBytes(eventList));
+                message = new MqttMessage(getMapper().writeValueAsBytes(eventList));
                 message.setQos(1);
                 message.setRetained(true);
                 return message;
@@ -255,9 +241,12 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
     }
 
     /**
-     * Convenience method, in order to send some intent to a topic. The intent is guaranteed to be sent as soon as possible within order.
-     * This method should not be used if the GatewayClient serves a service.
-     * This method should be used by Servants (in order to orchestrate services) and Agents (in order to choreograph Servants)
+     * Convenience method, in order to send some intent to a topic. The intent
+     * is guaranteed to be sent as soon as possible within order. This method
+     * should not be used if the GatewayClient serves a service. This method
+     * should be used by Servants (in order to orchestrate services) and Agents
+     * (in order to choreograph Servants)
+     *
      * @param topic This is usually the intent topic for some service.
      * @param intent The actual intent
      */
@@ -265,7 +254,7 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
         try {
             MqttMessage message;
             if (intent != null) {
-                message = new MqttMessage(mapper.writeValueAsBytes(intent));
+                message = new MqttMessage(getMapper().writeValueAsBytes(intent));
             } else {
                 message = new MqttMessage();
             }
@@ -287,11 +276,13 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
     }
 
     /**
-     * Each event for the same topic is sent within an array, as soon as sending becomes possible.
-     * This may result in an array of multiple events, whereas the most recent event will be at position 0.
+     * Each event for the same topic is sent within an array, as soon as sending
+     * becomes possible. This may result in an array of multiple events, whereas
+     * the most recent event will be at position 0.
+     *
      * @param topic
      * @param eventValue
-     * @param timestamp 
+     * @param timestamp
      */
     public void publishEvent(String topic, Object eventValue, long timestamp) {
         publishEvent(topic, new GCEvent<>(eventValue, timestamp));
@@ -312,17 +303,18 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
     }
 
     /**
-     * The most recent status for the same topic is beeing sent as soon as possible.
-     * This may result in a loss of some status, as the services changes the status before the old one could have been sent.
-
+     * The most recent status for the same topic is beeing sent as soon as
+     * possible. This may result in a loss of some status, as the services
+     * changes the status before the old one could have been sent.
+     *
      * @param topic
-     * @param status 
+     * @param status
      */
     public void publishStatus(String topic, Object status) {
         try {
             MqttMessage message;
             if (status != null) {
-                message = new MqttMessage(mapper.writeValueAsBytes(status));
+                message = new MqttMessage(getMapper().writeValueAsBytes(status));
             } else {
                 message = new MqttMessage();
             }
@@ -339,7 +331,7 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
 
     public void publishDescription(String topic, Object description) {
         try {
-            MqttMessage message = new MqttMessage(mapper.writeValueAsBytes(description));
+            MqttMessage message = new MqttMessage(getMapper().writeValueAsBytes(description));
             message.setQos(1);
             message.setRetained(true);
 
@@ -372,12 +364,12 @@ public class GatewayClient<S extends ClientContract> implements MQTTCommunicatio
                         timer.cancel();
                         timer = null;
 
-                        communication.publishActualWill(mapper.writeValueAsBytes(contract.ONLINE));
+                        communication.publishActualWill(getMapper().writeValueAsBytes(contract.ONLINE));
                         for (String topic : messageConsumerMap.keySet()) {
                             communication.subscribe(topic, 1);
                         }
                         Logger.getLogger(GatewayClient.class
-                    .getName()).log(Level.INFO, "Connection and topic-subscriptions re-established");
+                                .getName()).log(Level.INFO, "Connection and topic-subscriptions re-established");
 
                     }
 

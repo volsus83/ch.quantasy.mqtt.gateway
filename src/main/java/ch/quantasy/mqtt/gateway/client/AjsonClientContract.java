@@ -40,13 +40,41 @@
  *  *
  *  *
  */
-package ch.quantasy.mqtt.communication.mqtt;
+package ch.quantasy.mqtt.gateway.client;
 
-import org.eclipse.paho.client.mqttv3.MqttCallback;
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.MapperFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.introspect.VisibilityChecker;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 
 /**
  *
  * @author reto
  */
-public interface MQTTCommunicationCallback extends MqttCallback, PublisherCallback {
+public abstract class AjsonClientContract extends AClientContract {
+
+    private final ObjectMapper mapper;
+
+    public AjsonClientContract(String rootContext, String baseClass) {
+        this(rootContext, baseClass, null);
+    }
+
+    public AjsonClientContract(String rootContext, String baseClass, String instance) {
+        super(rootContext, baseClass, instance);
+        mapper = new ObjectMapper(new JsonFactory());
+        mapper.setVisibility(VisibilityChecker.Std.defaultInstance().withFieldVisibility(JsonAutoDetect.Visibility.ANY)
+                .withGetterVisibility(JsonAutoDetect.Visibility.NONE)
+                .withSetterVisibility(JsonAutoDetect.Visibility.NONE)
+                .withCreatorVisibility(JsonAutoDetect.Visibility.NONE));
+        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
+        mapper.configure(MapperFeature.PROPAGATE_TRANSIENT_MARKER, true);
+    }
+
+    public ObjectMapper getObjectMapper() {
+        return mapper;
+    }
 }

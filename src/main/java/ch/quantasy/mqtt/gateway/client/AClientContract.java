@@ -40,13 +40,70 @@
  *  *
  *  *
  */
-package ch.quantasy.mqtt.communication.mqtt;
+package ch.quantasy.mqtt.gateway.client;
 
-import org.eclipse.paho.client.mqttv3.MqttCallback;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  *
  * @author reto
  */
-public interface MQTTCommunicationCallback extends MqttCallback, PublisherCallback {
+public abstract class AClientContract {
+
+    public final String ROOT_CONTEXT;
+    public final String INSTANCE;
+    public final String CANONICAL_TOPIC;
+    public final String BASE_CLASS;
+    public final String BASE_TOPIC;
+    public final String STATUS;
+    public final String STATUS_CONNECTION;
+    public final String OFFLINE;
+    public final String ONLINE;
+
+    public final String EVENT;
+    public final String INTENT;
+    public final String DESCRIPTION;
+
+    public AClientContract(String rootContext, String baseClass) {
+        this(rootContext, baseClass, null);
+    }
+
+    public AClientContract(String rootContext, String baseClass, String instance) {
+        ROOT_CONTEXT = rootContext;
+        BASE_CLASS = baseClass;
+        BASE_TOPIC = ROOT_CONTEXT + "/" + BASE_CLASS;
+        INSTANCE = instance;
+        if (INSTANCE != null) {
+            CANONICAL_TOPIC = BASE_TOPIC + "/" + INSTANCE;
+        } else {
+            CANONICAL_TOPIC = BASE_TOPIC;
+        }
+
+        EVENT = CANONICAL_TOPIC + "/E";
+        INTENT = CANONICAL_TOPIC + "/I";
+        STATUS = CANONICAL_TOPIC + "/S";
+        DESCRIPTION = BASE_TOPIC + "/D";
+
+        STATUS_CONNECTION = STATUS + "/connection";
+        OFFLINE = "offline";
+        ONLINE = "online";
+    }
+
+    public void publishContracts(GatewayClient gatewayClient) {
+
+        Map<String, String> descriptions = new HashMap<>();
+        describe(descriptions);
+        descriptions.put(STATUS_CONNECTION, "[" + ONLINE + "|" + OFFLINE + "]");
+
+        for (Map.Entry<String, String> description : descriptions.entrySet()) {
+            gatewayClient.publishDescription(description.getKey(), description.getValue());
+        }
+    }
+
+    public abstract ObjectMapper getObjectMapper();
+
+    protected abstract void describe(Map<String, String> descriptions);
+
 }

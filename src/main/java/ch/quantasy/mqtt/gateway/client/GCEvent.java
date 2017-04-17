@@ -107,7 +107,5 @@ public class GCEvent<V extends Object> {
     public String toString() {
         return "GatewayClientEvent{" + "timestamp=" + timestamp + ", value=" + value + '}';
     }
-    
-    
 
 }

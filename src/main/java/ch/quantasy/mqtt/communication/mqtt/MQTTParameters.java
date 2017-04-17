@@ -69,7 +69,7 @@ public class MQTTParameters {
     }
 
     public MQTTParameters(MQTTParameters parameters) {
-        this(parameters.clientID, parameters.isCleanSession, parameters.willTopic, parameters.lastWillMessage, parameters.isLastWillRetained, parameters.lastWillQoS, parameters.mqttCallback,parameters.serverURIs);
+        this(parameters.clientID, parameters.isCleanSession, parameters.willTopic, parameters.lastWillMessage, parameters.isLastWillRetained, parameters.lastWillQoS, parameters.mqttCallback, parameters.serverURIs);
     }
 
     public MQTTParameters(String clientID, boolean isCleanSession, String willTopic, byte[] lastWillMessage, boolean isLastWillRetained, int lastWillQoS, MqttCallback mqttCallback, URI... serverURIs) {
