@@ -176,10 +176,14 @@ public class GatewayClient<S extends AClientContract> implements MQTTCommunicati
             Set<MessageReceiver> messageConsumers = messageConsumerMap.get(topic);
             messageConsumers.remove(consumer);
             if (messageConsumers.isEmpty()) {
-                messageConsumerMap.remove(topic);
-                communication.unsubscribe(topic);
+                unsubscribe(topic);
             }
         }
+    }
+
+    public synchronized void unsubscribe(String topic) {
+        messageConsumerMap.remove(topic);
+        communication.unsubscribe(topic);
     }
 
     public Set<String> getSubscriptionTopics() {
