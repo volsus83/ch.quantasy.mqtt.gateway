@@ -8,7 +8,7 @@ This is a wrapper to [paho]'s [MQTT] library and allows to design data driven pr
 <img src="https://github.com/knr1/ch.quantasy.mqtt.gateway/blob/master/MqttGatewayClient.svg.png" alt="Interface-Diagram" />
 </a>
 
-##Ideology
+## Ideology
 Implementing the business-capabilites as micro-Services allows independent development and instanciation of the different aspects.
 [martinFowler]
 
