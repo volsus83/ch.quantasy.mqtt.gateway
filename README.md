@@ -7,6 +7,19 @@ This is a wrapper to [paho]'s [MQTT] library and allows to design data driven pr
 <a href="https://github.com/knr1/ch.quantasy.mqtt.gateway/blob/master/MqttGatewayClient.svg">
 <img src="https://github.com/knr1/ch.quantasy.mqtt.gateway/blob/master/MqttGatewayClient.svg.png" alt="Interface-Diagram" />
 </a>
+
+##Ideology
+Implementing the business-capabilites as micro-Services allows independent development and instanciation of the different aspects.
+[martinFowler]
+
+The different capabilities per micro-service are promoted in form of promises.
+[promiseLinux],[promise] These promises are expressed by contract[contract], hence, each service provides a document based and independent API,
+which is not bound to any programming language.[tolerant]
+
+
+A message broker (publish subscirbe) is used to handle the flow of documents between the micro-services. The broker does not provide any domain specific business logic.
+
+
 ## API towards MQTT
 The idea of this MQTT-Gateway is to provide some very generic but common API. There is nothing new, the following ideas are borrowed from different design ideologies. The idea
 behind this API is to provide a simple and light-weight communication for the programs that provide mqtt access.
@@ -81,4 +94,10 @@ provide micro-service capabilities to native programs, using a MVP (Model View P
 [TiMqWay.jar]: <https://prof.hti.bfh.ch/knr1/TiMqWay.jar>
 [d3Viewer]: <https://github.com/hardillb/d3-MQTT-Topic-Tree>
 [micro-service]: <https://en.wikipedia.org/wiki/Microservices>
+[martinFowler]: <https://martinfowler.com/articles/microservices.html>
+[promiseLinux]: <http://www.linuxjournal.com/content/promise-theory%E2%80%94what-it>
+[promise]: <http://markburgess.org/BookOfPromises.pdf>
+[contract]: <https://en.wikipedia.org/wiki/Design_by_contract>
+[tolerant]: <https://martinfowler.com/bliki/TolerantReader.html>
+
 
