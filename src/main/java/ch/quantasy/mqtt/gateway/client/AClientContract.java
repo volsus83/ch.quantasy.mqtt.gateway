@@ -45,6 +45,7 @@ package ch.quantasy.mqtt.gateway.client;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  *
@@ -76,7 +77,7 @@ public abstract class AClientContract {
         BASE_TOPIC = ROOT_CONTEXT + "/" + BASE_CLASS;
         INSTANCE = instance;
         if (INSTANCE != null) {
-            CANONICAL_TOPIC = BASE_TOPIC + "/" + INSTANCE;
+            CANONICAL_TOPIC = BASE_TOPIC + "/U/" + INSTANCE;
         } else {
             CANONICAL_TOPIC = BASE_TOPIC;
         }
@@ -105,5 +106,32 @@ public abstract class AClientContract {
     public abstract ObjectMapper getObjectMapper();
 
     protected abstract void describe(Map<String, String> descriptions);
+
+    @Override
+    public int hashCode() {
+        int hash = 3;
+        hash = 73 * hash + Objects.hashCode(this.CANONICAL_TOPIC);
+        return hash;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        final AClientContract other = (AClientContract) obj;
+        if (!Objects.equals(this.CANONICAL_TOPIC, other.CANONICAL_TOPIC)) {
+            return false;
+        }
+        return true;
+    }
+    
+    
 
 }

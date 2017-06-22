@@ -19,12 +19,18 @@ which is not bound to any programming language.[tolerant]
 
 A message broker (publish subscirbe) is used to handle the flow of documents between the micro-services. The broker does not provide any domain specific business logic.
 
+### Service Class vs. Service Instance
+Every Service instance is a working unit (=U) of its abstract data type (class). Each unit has a distinct identifier <id>.
+
 
 ## API towards MQTT
 The idea of this MQTT-Gateway is to provide some very generic but common API. There is nothing new, the following ideas are borrowed from different design ideologies. The idea
 behind this API is to provide a simple and light-weight communication for the programs that provide mqtt access.
 
 Per default, the implemented MQTT-Gateway expects [YAML] as data in- and output. However, this can be changed to any text- or binary or even hybrid solution.
+### Unit
+Each unit (=U) represents an instance of a Service-Class and uses an identifier <id> within its topic in order to be discriminated.
+
 ### Intent
 The intent (=I) is the way, an MQTT-gateway-client should allow to be controlled / configured. The designer of the program (e.g. micro-service) defines the contracts on what data is accepted as
 input from MQTT.
