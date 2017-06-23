@@ -127,6 +127,15 @@ public class GatewayClient<S extends AClientContract> implements MQTTCommunicati
         return parameters;
     }
 
+    public void quit() {
+        try {
+            this.disconnect();
+            this.communication.quit();
+        } catch (MqttException ex) {
+            Logger.getLogger(GatewayClient.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
     public void connect() throws MqttException {
         if (communication.isConnected()) {
             return;
