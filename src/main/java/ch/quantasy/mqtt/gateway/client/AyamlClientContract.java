@@ -48,6 +48,8 @@ import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.introspect.VisibilityChecker;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import java.util.Map;
+import java.util.TreeMap;
 
 /**
  *
@@ -75,5 +77,21 @@ public abstract class AyamlClientContract extends AClientContract {
 
     public ObjectMapper getObjectMapper() {
         return mapper;
+    }
+    
+    public String toMD() {
+        String toMD = "";
+        Map<String, String> descriptions = new TreeMap<>();
+        describe(descriptions);
+        toMD += "### " + BASE_CLASS + "\n";
+        for (Map.Entry<String, String> entry : descriptions.entrySet()) {
+            String key = entry.getKey();
+            String value = "   "+entry.getValue();
+            value=value.replaceAll("\n", "\n   ");
+            toMD += "```\n";
+            toMD += key + "\n" + value + "\n";
+            toMD += "```\n";
+        }
+        return toMD;
     }
 }
