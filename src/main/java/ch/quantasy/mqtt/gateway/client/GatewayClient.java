@@ -61,10 +61,13 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 
 /**
@@ -74,7 +77,7 @@ import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
  */
 public class GatewayClient<S extends AClientContract> implements MQTTCommunicationCallback {
 
-    private Timer timer;
+    private final ScheduledExecutorService timerService;
 
     private final MQTTParameters parameters;
     private final S contract;
@@ -99,7 +102,13 @@ public class GatewayClient<S extends AClientContract> implements MQTTCommunicati
         this.contract = contract;
         messageConsumerMap = new HashMap<>();
         intentMap = new HashMap<>();
-
+        this.timerService = Executors.newScheduledThreadPool(1, new ThreadFactory() {
+            public Thread newThread(Runnable r) {
+                Thread t = Executors.defaultThreadFactory().newThread(r);
+                t.setDaemon(true);
+                return t;
+            }
+        });
         statusMap = new HashMap<>();
         eventMap = new HashMap<>();
         contractDescriptionMap = new HashMap<>();
@@ -358,24 +367,25 @@ public class GatewayClient<S extends AClientContract> implements MQTTCommunicati
                     .getName()).log(Level.SEVERE, null, ex);
         }
     }
+    private ScheduledFuture timerFuture;
 
     @Override
     public void connectionLost(Throwable thrwbl) {
         Logger.getLogger(GatewayClient.class
                 .getName()).log(Level.SEVERE, "Connection to subscriptions lost... will try again in 3 seconds", thrwbl);
-        if (this.timer != null) {
+        if (this.timerFuture != null) {
             return;
         }
-        this.timer = new Timer(true);
-        this.timer.scheduleAtFixedRate(new TimerTask() {
+        timerFuture = timerService.scheduleAtFixedRate(
+                new TimerTask() {
 
             @Override
             public void run() {
                 try {
-                    if (timer != null) {
+                    if (timerFuture != null) {
                         communication.connect(parameters);
-                        timer.cancel();
-                        timer = null;
+                        timerFuture.cancel(false);
+                        timerFuture = null;
 
                         communication.publishActualWill(getMapper().writeValueAsBytes(contract.ONLINE));
                         for (String topic : messageConsumerMap.keySet()) {
@@ -389,7 +399,7 @@ public class GatewayClient<S extends AClientContract> implements MQTTCommunicati
                 } catch (JsonProcessingException | MqttException ex) {
                 }
             }
-        }, 0, 3000);
+        }, 0, 3000, TimeUnit.MILLISECONDS);;
     }
 
     public static boolean compareTopic(final String actualTopic, final String subscribedTopic) {
