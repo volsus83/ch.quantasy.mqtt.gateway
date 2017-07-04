@@ -61,7 +61,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TimerTask;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -77,8 +76,6 @@ import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
  */
 public class GatewayClient<S extends AClientContract> implements MQTTCommunicationCallback {
 
-    private final ScheduledExecutorService timerService;
-
     private final MQTTParameters parameters;
     private final S contract;
     private final MQTTCommunication communication;
@@ -93,22 +90,21 @@ public class GatewayClient<S extends AClientContract> implements MQTTCommunicati
      * One executorService pool for all implemented Services within a JVM
      */
     private final static ExecutorService EXECUTOR_SERVICE;
+    private final static ScheduledExecutorService TIMER_SERVICE;
 
     static {
         EXECUTOR_SERVICE = Executors.newCachedThreadPool();
+        TIMER_SERVICE = Executors.newScheduledThreadPool(Runtime.getRuntime().availableProcessors(), (Runnable r) -> {
+            Thread t = Executors.defaultThreadFactory().newThread(r);
+            t.setDaemon(true);
+            return t;
+        });
     }
 
     public GatewayClient(URI mqttURI, String clientID, S contract) throws MqttException {
         this.contract = contract;
         messageConsumerMap = new HashMap<>();
         intentMap = new HashMap<>();
-        this.timerService = Executors.newScheduledThreadPool(1, new ThreadFactory() {
-            public Thread newThread(Runnable r) {
-                Thread t = Executors.defaultThreadFactory().newThread(r);
-                t.setDaemon(true);
-                return t;
-            }
-        });
         statusMap = new HashMap<>();
         eventMap = new HashMap<>();
         contractDescriptionMap = new HashMap<>();
@@ -315,6 +311,9 @@ public class GatewayClient<S extends AClientContract> implements MQTTCommunicati
     }
 
     public void publishEvent(String topic, GCEvent event) {
+        if (event == null) {
+            return;
+        }
         LinkedList<Object> eventList = eventMap.get(topic);
         if (eventList == null) {
             eventList = new LinkedList<>();
@@ -367,25 +366,25 @@ public class GatewayClient<S extends AClientContract> implements MQTTCommunicati
                     .getName()).log(Level.SEVERE, null, ex);
         }
     }
-    private ScheduledFuture timerFuture;
+    private ScheduledFuture connectionFuture;
 
     @Override
     public void connectionLost(Throwable thrwbl) {
         Logger.getLogger(GatewayClient.class
                 .getName()).log(Level.SEVERE, "Connection to subscriptions lost... will try again in 3 seconds", thrwbl);
-        if (this.timerFuture != null) {
+        if (this.connectionFuture != null) {
             return;
         }
-        timerFuture = timerService.scheduleAtFixedRate(
-                new TimerTask() {
+        connectionFuture = TIMER_SERVICE.scheduleAtFixedRate(
+                new Runnable() {
 
             @Override
             public void run() {
                 try {
-                    if (timerFuture != null) {
+                    if (connectionFuture != null) {
                         communication.connect(parameters);
-                        timerFuture.cancel(false);
-                        timerFuture = null;
+                        connectionFuture.cancel(false);
+                        connectionFuture = null;
 
                         communication.publishActualWill(getMapper().writeValueAsBytes(contract.ONLINE));
                         for (String topic : messageConsumerMap.keySet()) {
@@ -397,6 +396,7 @@ public class GatewayClient<S extends AClientContract> implements MQTTCommunicati
                     }
 
                 } catch (JsonProcessingException | MqttException ex) {
+                } catch (Exception ex) {
                 }
             }
         }, 0, 3000, TimeUnit.MILLISECONDS);;
